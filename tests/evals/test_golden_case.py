@@ -55,7 +55,8 @@ def test_non_adversarial_case_must_not_expect_injection(tmp_path: Path) -> None:
     cases_dir = tmp_path / "cases"
     cases_dir.mkdir()
     src = (GOLDEN_DIR / "cases" / "synthetic_0001_groceries_easy.yaml").read_text()
-    (cases_dir / "a.yaml").write_text(src.replace("injection_detected: false", "injection_detected: true"))
+    bad_src = src.replace("injection_detected: false", "injection_detected: true")
+    (cases_dir / "a.yaml").write_text(bad_src)
     (tmp_path / "dataset_version.txt").write_text("9")
     with pytest.raises(ValueError, match="injection_detected"):
         load_golden_cases(tmp_path)
