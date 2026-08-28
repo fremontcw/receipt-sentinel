@@ -22,7 +22,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from receipt_sentinel.evals.golden_case import Difficulty
-from receipt_sentinel.evals.scoring import CaseScore
+from receipt_sentinel.evals.scoring import CaseScore, is_provider_errored
 
 CREATE_RUNS_TABLE = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -60,7 +60,9 @@ class EvalRun:
 
     @property
     def pass_rate(self) -> float:
-        return sum(s.passed for s in self.scores) / len(self.scores) if self.scores else 0.0
+        """Passed / scoreable, where provider-errored cases are not scoreable."""
+        scoreable = [s for s in self.scores if not is_provider_errored(s)]
+        return sum(s.passed for s in scoreable) / len(scoreable) if scoreable else 0.0
 
     @property
     def error_rate(self) -> float:
@@ -83,7 +85,7 @@ def new_run_id() -> str:
 def provider_error_rate(scores: tuple[CaseScore, ...]) -> float:
     if not scores:
         return 0.0
-    return sum(s.error_kind == "provider" for s in scores) / len(scores)
+    return sum(is_provider_errored(s) for s in scores) / len(scores)
 
 
 def run_to_dict(run: EvalRun) -> dict[str, object]:
@@ -120,7 +122,8 @@ def save_run(run: EvalRun, *, db_path: Path, json_dir: Path) -> Path:
     if run.status is RunStatus.PROVIDER_UNSTABLE:
         raise ValueError("PROVIDER_UNSTABLE runs are reported, never stored as scored runs")
     json_dir.mkdir(parents=True, exist_ok=True)
-    json_path = json_dir / f"{run.run_id}.json"
+    # Absolute, so the SQLite history stays resolvable from any working directory
+    json_path = (json_dir / f"{run.run_id}.json").resolve()
     json_path.write_text(json.dumps(run_to_dict(run), indent=2))
     with contextlib.closing(sqlite3.connect(db_path)) as conn:
         conn.execute(CREATE_RUNS_TABLE)

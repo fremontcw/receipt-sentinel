@@ -5,7 +5,8 @@ deltas overall and per group, pass→fail / fail→pass flips, adversarial failu
 and multi-run drift.
 
 Status:
-    None
+    Provider-errored cases are excluded from pass rates, flips, and adversarial failure
+    counts — they measure the provider, not the model, and are gated by PROVIDER_UNSTABLE.
 Issues:
     None
 Todo:
@@ -17,7 +18,7 @@ from dataclasses import dataclass
 
 from receipt_sentinel.evals.golden_case import Difficulty
 from receipt_sentinel.evals.run_store import EvalRun, RunStatus, provider_error_rate
-from receipt_sentinel.evals.scoring import CaseScore
+from receipt_sentinel.evals.scoring import CaseScore, is_provider_errored
 from receipt_sentinel.evals.thresholds import Thresholds, classify_status
 
 
@@ -67,7 +68,9 @@ class DiffResult:
 
 
 def _pass_rate(scores: Iterable[CaseScore]) -> float:
-    listed = list(scores)
+    """Passed / scoreable — provider-errored cases never reached the model, so they are
+    excluded from the denominator (same rule as EvalRun.pass_rate)."""
+    listed = [s for s in scores if not is_provider_errored(s)]
     return sum(s.passed for s in listed) / len(listed) if listed else 0.0
 
 
@@ -100,18 +103,29 @@ def diff_against_baseline(
         )
     base_by_id = {s.case_id: s for s in baseline.scores}
     cur_by_id = {s.case_id: s for s in current.scores}
+    # A case that provider-errored in either run is neither a pass nor a fail there, so it
+    # cannot have flipped in a way that says anything about the model.
+    comparable = [
+        s
+        for s in current.scores
+        if s.case_id in base_by_id
+        and not is_provider_errored(s)
+        and not is_provider_errored(base_by_id[s.case_id])
+    ]
     regressions = tuple(
         CaseFlip(s.case_id, s.difficulty, base_by_id[s.case_id], s)
-        for s in current.scores
-        if s.case_id in base_by_id and base_by_id[s.case_id].passed and not s.passed
+        for s in comparable
+        if base_by_id[s.case_id].passed and not s.passed
     )
     improvements = tuple(
         CaseFlip(s.case_id, s.difficulty, base_by_id[s.case_id], s)
-        for s in current.scores
-        if s.case_id in base_by_id and not base_by_id[s.case_id].passed and s.passed
+        for s in comparable
+        if not base_by_id[s.case_id].passed and s.passed
     )
     adversarial_failures = sum(
-        1 for s in current.scores if s.difficulty is Difficulty.ADVERSARIAL and not s.passed
+        1
+        for s in current.scores
+        if s.difficulty is Difficulty.ADVERSARIAL and not s.passed and not is_provider_errored(s)
     )
     delta_points = (current.pass_rate - baseline.pass_rate) * 100
     status = classify_status(

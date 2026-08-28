@@ -14,6 +14,8 @@ Todo:
 import asyncio
 from datetime import UTC, datetime
 
+import anthropic
+
 from receipt_sentinel.categorize.categorize_receipt import ParseFailure, categorize_receipt
 from receipt_sentinel.categorize.llm_client import LlmClient, LlmResponse, LlmTransientError
 from receipt_sentinel.evals.golden_case import GoldenCase
@@ -44,7 +46,10 @@ async def _score_one(
             text=err.raw_text, input_tokens=0, output_tokens=0, latency_ms=0, model_id=model_id
         )
         return errored_score(case, "parse", raw, pricing)
-    except LlmTransientError:
+    except (LlmTransientError, anthropic.APIStatusError):
+        # APIStatusError covers the non-retryable statuses the client never retries (401,
+        # 403, 404, 400). They are provider problems, not model failures — one must not
+        # crash the whole run.
         return errored_score(case, "provider", None, pricing)
     return score_case(case, result.record, result.response, pricing)
 
@@ -98,11 +103,13 @@ async def run_evals(
     tasks = [asyncio.create_task(guarded(case)) for case in cases]
     try:
         scores = list(await asyncio.gather(*tasks))
-    except CostCeilingExceeded:
+    except BaseException:
+        # Any escaping exception (cost ceiling, cancellation, an unforeseen client error)
+        # leaves siblings running. Cancel and reap every task — including the raiser — so
+        # cancellation is fully awaited and no "Task was destroyed but it is pending" /
+        # unretrieved-exception noise leaks out.
         for task in tasks:
             task.cancel()
-        # Reap every task (including the raiser) so cancellation is fully awaited and no
-        # "Task was destroyed but it is pending" / unretrieved-exception noise leaks out.
         await asyncio.gather(*tasks, return_exceptions=True)
         raise
 

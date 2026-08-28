@@ -1,5 +1,7 @@
 import json
+from unittest.mock import MagicMock
 
+import anthropic
 import pytest
 
 from receipt_sentinel.categorize.llm_client import FakeLlmClient, LlmRequest, LlmTransientError
@@ -54,3 +56,18 @@ async def test_cost_ceiling_aborts() -> None:
         await run_evals(CASES, PROMPT, FakeLlmClient(oracle), model_id="fake", pricing=pricey,
                         thresholds=Thresholds(run_cost_ceiling_usd=0.5), dataset_version="1",
                         git_sha="s")
+
+
+async def test_non_retryable_api_error_is_a_provider_error_not_a_crash() -> None:
+    """A 401 escapes the client's retry policy; the run must survive it."""
+
+    class Unauthorised:
+        async def complete(self, request: LlmRequest) -> object:
+            raise anthropic.AuthenticationError(
+                message="bad key", response=MagicMock(status_code=401), body=None
+            )
+
+    run = await run_evals(CASES, PROMPT, Unauthorised(), model_id="fake", pricing=FREE,
+                          thresholds=Thresholds(), dataset_version="1", git_sha="s")
+    assert run.status is RunStatus.PROVIDER_UNSTABLE
+    assert all(s.error_kind == "provider" for s in run.scores)

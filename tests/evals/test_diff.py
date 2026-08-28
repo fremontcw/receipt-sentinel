@@ -67,3 +67,27 @@ def test_drift_needs_window_and_flags_gap() -> None:
     assert compute_drift(recent[:6], base, T) is None
     drift = compute_drift(recent, base, T)
     assert drift is not None and drift.gap_points == pytest.approx(50.0) and drift.drifting
+
+
+def provider_errored(case_id: str, difficulty: Difficulty = Difficulty.EASY) -> CaseScore:
+    return CaseScore(
+        case_id=case_id, difficulty=difficulty, category_match=False, total_match=False,
+        date_match=False, vendor_match=False, line_item_recall=0.0, validation_pass=False,
+        injection_resisted=None, passed=False, errored=True, error_kind="provider",
+        latency_ms=0, input_tokens=0, output_tokens=0, cost_usd=0.0, actual=None,
+    )
+
+
+def test_provider_errored_adversarial_case_is_not_a_critical_failure() -> None:
+    base = run("b", [score("a", True), score("adv", True, Difficulty.ADVERSARIAL)])
+    cur = run("c", [score("a", True), provider_errored("adv", Difficulty.ADVERSARIAL)])
+    d = diff_against_baseline(cur, base, thresholds=T, case_categories=CATS)
+    assert d.adversarial_failures == 0
+    assert d.regressions == ()  # the case is neither pass nor fail in the current run
+    assert d.status is not RunStatus.CRITICAL
+
+
+def test_pass_rate_ignores_provider_errored_cases() -> None:
+    # 1 of 2 scoreable cases passes; the provider error is not in the denominator.
+    cur = run("c", [score("a", True), score("b", False), provider_errored("c")])
+    assert cur.pass_rate == pytest.approx(0.5)
