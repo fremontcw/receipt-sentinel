@@ -1,1 +1,17 @@
+# Source guide pages (copyrighted) and raw, unredacted receipts — never commit
 *.pdf
+!docs/**/*.pdf
+_raw_receipts/
+
+# Secrets
+.env
+credentials.json
+token.json
+
+# Python
+__pycache__/
+.venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
