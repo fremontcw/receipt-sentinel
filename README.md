@@ -23,7 +23,7 @@ src/receipt_sentinel/
 ├── categorize/         LLM call: receipt text → ReceiptRecord (strict JSON schema, no tools)
 │   ├── categorize_receipt.py
 │   ├── llm_client.py           LlmClient protocol
-│   ├── anthropic_llm_client.py Real client (claude-sonnet-5)
+│   ├── anthropic_llm_client.py Real client (claude-sonnet-5, thinking disabled)
 │   └── receipt_record.py       Pydantic output schema
 ├── prompts/             Versioned YAML prompts (id, version, created_at, system, few-shot)
 └── evals/
@@ -113,20 +113,37 @@ baseline is only valid for the dataset version it was blessed against.
 | PROVIDER_UNSTABLE | > 5% of cases hit a provider error after retries |
 | DRIFT (reported alongside PASS) | 7-run moving average > 2 pts below baseline |
 
-Parse errors (malformed model JSON) count as scored failures, not provider
-instability — only transport-level errors (timeouts, 5xx after retries)
-count toward the 5% `PROVIDER_UNSTABLE` threshold. An unstable run is
-reported but never stored as a scored run, so it can't corrupt the drift
-window. Cost ceiling: $2/run. Max concurrency: 8.
+Parse errors (malformed model JSON, including a reply truncated at
+`max_tokens`) count as scored failures, not provider instability — only
+transport-level and non-retryable API errors (timeouts, 5xx after retries,
+401/403) count toward the 5% `PROVIDER_UNSTABLE` threshold. A
+provider-errored case never reached the model, so it is **excluded from the
+pass-rate denominator, from pass↔fail flips, and from the adversarial
+failure count** — an outage can't be scored as a model regression, and its
+only signal is the `PROVIDER_UNSTABLE` rate. An unstable run is reported but
+never stored as a scored run, so it can't corrupt the drift window. Cost
+ceiling: $2/run. Max concurrency: 8.
+
+**Drift is computed from local run history only.** The 7-run moving average
+reads the SQLite store under `runs/`, which is gitignored; CI runs with
+`--no-save`, so CI contributes nothing to the drift window. Drift signal
+therefore reflects the author's local runs, not CI.
 
 **Error taxonomy** — every reviewed failure is tagged in its golden case:
 `ocr | schema | reasoning | ambiguity | label_error | provider`.
 
 ## A regression, caught
 
-`make demo` runs the whole loop against `FakeLlmClient` with no API key,
-using an oracle tuned to be noisier than the real model so the diff shows
-real regressed rows. The resulting report is committed at
+`--fake` swaps the real model for a **clean oracle** that answers straight
+from the golden labels — a perfect model, by construction. That's what
+`baseline_fake.json` is blessed from, and what CI's keyless smoke run
+exercises (100% pass, PASS).
+
+`--demo-noise` adds deterministic damage on top of that oracle: ~6% of cases
+are mis-categorised to `other`. Diffed against the clean baseline, that is a
+real regression, so `make demo` prints **CRITICAL** at −10.7 pts with 6
+regressed cases and exits 1 — which the `make` target catches so the demo
+itself still succeeds. The resulting report is committed at
 [`docs/sample_report.html`](docs/sample_report.html) — open it directly, or
 see below.
 
@@ -135,7 +152,7 @@ see below.
 The report lists each regressed case side by side: expected value, previous
 (baseline) output, current output, and which scoring dimension flipped —
 e.g. a case that passed at baseline now fails on `category` because the
-fake oracle mis-routes a discounted grocery receipt to `other`. That's the
+noise-injected oracle mis-routes a grocery receipt to `other`. That's the
 shape of report a real prompt or model regression produces.
 
 ## The thing under test
@@ -169,8 +186,10 @@ make install
 make demo
 ```
 
-Runs `sentinel evals run --fake --out runs/demo` and produces
-`runs/demo/report.html` + `runs/demo/summary.md`.
+Runs `sentinel evals run --fake --demo-noise --out runs/demo` and produces
+`runs/demo/report.html` + `runs/demo/summary.md`. It reports **CRITICAL** and
+the command exits 1 — that is the demo working, and the `make` target absorbs
+the exit code. Drop `--demo-noise` for a clean 100%-pass fake run.
 
 **Real run (needs `ANTHROPIC_API_KEY`):**
 
@@ -179,9 +198,10 @@ uv run sentinel evals run --out runs/local
 uv run sentinel evals promote-baseline <run_id> --out runs/local
 ```
 
-`evals run` accepts `--fake` (use `FakeLlmClient`), `--no-save` (don't store
-the run), `--out DIR`, and `--report-url URL` (linked from the Slack
-alert). Turning a real failed receipt into a new golden case:
+`evals run` accepts `--fake` (clean label oracle, no API key), `--demo-noise`
+(with `--fake`: inject the demo regression), `--no-save` (don't store the
+run), `--out DIR`, and `--report-url URL` (linked from the Slack alert).
+Turning a real failed receipt into a new golden case:
 
 ```bash
 uv run sentinel evals promote RECEIPT_TXT --id CASE_ID
