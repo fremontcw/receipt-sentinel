@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import subprocess
+import urllib.error
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha1
@@ -91,14 +92,23 @@ def _git_sha() -> str:
         return "unknown"
 
 
-def _noisy_oracle(cases: list[GoldenCase]) -> FakeLlmClient:
-    """Answers from labels but deterministically mis-categorises ~6% for demo regressions."""
+def _label_oracle(cases: list[GoldenCase], *, noisy: bool) -> FakeLlmClient:
+    """Fake client that answers from the golden labels — a perfect model, by construction.
+
+    Args:
+        cases: Golden cases whose labels supply the answers.
+        noisy: When set, deterministically mis-categorises ~6% of cases, so the demo has a
+            regression to catch against a baseline blessed from a clean run.
+    """
 
     def respond(request: LlmRequest) -> str:
         for case in cases:
             if case.receipt_text.strip() in request.user:
                 answer = case.expected.model_dump(mode="json")
-                if int(sha1(case.id.encode()).hexdigest(), 16) % 17 == 0:  # noqa: S324 - not security
+                mis_categorise = (
+                    int(sha1(case.id.encode()).hexdigest(), 16) % 17 == 0  # noqa: S324 - not security
+                )
+                if noisy and mis_categorise:
                     answer["category"] = Category.OTHER.value
                 return json.dumps(answer)
         return "{}"
@@ -106,9 +116,14 @@ def _noisy_oracle(cases: list[GoldenCase]) -> FakeLlmClient:
     return FakeLlmClient(respond)
 
 
-def build_client(*, fake: bool, cases: list[GoldenCase]) -> tuple[LlmClient, str]:
+def build_client(
+    *, fake: bool, demo_noise: bool, cases: list[GoldenCase]
+) -> tuple[LlmClient, str]:
+    """Pick the client for a run: the label oracle under --fake, else the real model."""
     if fake:
-        return _noisy_oracle(cases), "fake"
+        return _label_oracle(cases, noisy=demo_noise), "fake"
+    if demo_noise:
+        raise SystemExit("--demo-noise only applies to --fake runs")
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise SystemExit("ANTHROPIC_API_KEY is not set")
@@ -159,12 +174,37 @@ def _diff_for(
 
 
 def command_evals_run(
-    paths: EvalPaths, *, fake: bool, save: bool, slack_webhook: str | None, report_url: str | None
+    paths: EvalPaths,
+    *,
+    fake: bool,
+    save: bool,
+    slack_webhook: str | None,
+    report_url: str | None,
+    demo_noise: bool = False,
+    client_override: LlmClient | None = None,
 ) -> int:
+    """Run the golden evals, diff against the baseline, write the report, alert, store.
+
+    Args:
+        paths: Resolved locations for the golden set, baseline, run store, and report.
+        fake: Use the label oracle instead of the real model (no API key needed).
+        save: Store the run in the local history (never for PROVIDER_UNSTABLE runs).
+        slack_webhook: Incoming-webhook URL, or None to skip alerting.
+        report_url: URL linked from the Slack alert.
+        demo_noise: With `fake`, mis-categorise ~6% of cases so the demo shows a regression.
+        client_override: Test-only seam — an LlmClient to use instead of building one, so
+            tests can exercise the provider-error and regression merge gates without a
+            network call. Never set from the CLI.
+
+    Returns:
+        Process exit code: 1 on a CRITICAL diff, else 0.
+    """
     cases = load_golden_cases(paths.golden_dir)
     dataset_version = load_dataset_version(paths.golden_dir)
     thresholds = load_thresholds(paths.thresholds_path)
-    client, model_id = build_client(fake=fake, cases=cases)
+    client, model_id = build_client(fake=fake, demo_noise=demo_noise, cases=cases)
+    if client_override is not None:
+        client = client_override
     run = asyncio.run(
         run_evals(
             cases,
@@ -188,9 +228,14 @@ def command_evals_run(
     ) + [run]
     paths.report_path.write_text(render_report_html(run, diff, cases, history_for_chart))
     _write_summary(paths.report_path.parent / "summary.md", run, diff)
-    post_slack_alert(build_slack_payload(run, diff, report_url), slack_webhook)
+    # Store before alerting: a Slack outage must never cost us the run.
     if save:
         save_run(run, db_path=paths.db_path, json_dir=paths.runs_dir)
+    try:
+        post_slack_alert(build_slack_payload(run, diff, report_url), slack_webhook)
+    except (RuntimeError, urllib.error.URLError, OSError) as err:
+        # Never print the webhook URL — it is a credential.
+        print(f"slack alert failed ({type(err).__name__}); run was still saved and reported")
     print(
         f"{run.run_id}: {diff.status.value} pass {run.pass_rate:.1%} "
         f"({diff.pass_rate_delta_points:+.1f} pts) → {paths.report_path}"
@@ -200,6 +245,9 @@ def command_evals_run(
 
 def command_promote_baseline(paths: EvalPaths, run_id: str) -> int:
     source = paths.runs_dir / f"{run_id}.json"
+    if not source.exists():
+        print(f"no stored run {run_id} in {paths.runs_dir}")
+        return 1
     run = load_run_json(source)
     current_version = load_dataset_version(paths.golden_dir)
     if run.dataset_version != current_version:
