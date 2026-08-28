@@ -1,0 +1,8 @@
+# config/thresholds.yaml — regression gate. Deltas are percentage points vs baseline.
+warn_delta_points: -3.0
+critical_delta_points: -8.0
+max_error_rate: 0.05
+drift_floor_points: 2.0
+drift_window_runs: 7
+run_cost_ceiling_usd: 2.0
+max_concurrency: 8
