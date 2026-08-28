@@ -22,6 +22,7 @@ from receipt_sentinel.prompts.prompt_config import PromptConfig
 
 MAX_RECEIPT_CHARS = 20_000
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$")
+_FENCED_JSON = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 
 class ParseFailure(Exception):  # noqa: N818
@@ -55,7 +56,9 @@ def build_user_message(receipt_text: str, prompt: PromptConfig) -> str:
 
 
 def parse_model_output(text: str) -> ModelOutput:
-    cleaned = _FENCE.sub("", text)
+    # Try to find JSON between fences first (handles prose before/after fences)
+    fenced_match = _FENCED_JSON.search(text)
+    cleaned = fenced_match.group(1) if fenced_match else _FENCE.sub("", text)
     try:
         return ModelOutput.model_validate_json(cleaned)
     except ValidationError as err:
