@@ -1,0 +1,39 @@
+name: evals
+on:
+  pull_request:
+    paths:
+      - "src/receipt_sentinel/prompts/**"
+      - "src/receipt_sentinel/categorize/**"
+      - "config/active_prompt.yaml"
+      - "config/thresholds.yaml"
+      - "src/receipt_sentinel/evals/golden/**"
+      - "src/receipt_sentinel/evals/baseline.json"
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.12
+      - run: uv sync
+      - name: Run golden evals
+        id: evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: uv run sentinel evals run --no-save --out runs/ci --report-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: runs/ci/report.html
+      - name: Comment summary on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: runs/ci/summary.md
+      - name: Fail on critical
+        if: steps.evals.outcome == 'failure'
+        run: exit 1
