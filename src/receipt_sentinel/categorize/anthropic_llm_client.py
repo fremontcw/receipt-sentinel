@@ -54,7 +54,8 @@ class AnthropicLlmClient:
                 return await self._call_once(request)
             except RETRYABLE as err:
                 last_error = err
-                await asyncio.sleep(self._backoff_seconds * (2**attempt))
+                if attempt < self._max_retries:
+                    await asyncio.sleep(self._backoff_seconds * (2**attempt))
         raise LlmTransientError(f"gave up after {self._max_retries} retries") from last_error
 
     async def _call_once(self, request: LlmRequest) -> LlmResponse:

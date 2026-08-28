@@ -70,3 +70,19 @@ async def test_gives_up_after_max_retries() -> None:
     with pytest.raises(LlmTransientError):
         await client.complete(REQ)
     assert sdk.messages.create.await_count == 4  # 1 initial + 3 retries
+
+
+async def test_extracts_text_only_from_mixed_content_blocks() -> None:
+    message = SimpleNamespace(
+        content=[
+            SimpleNamespace(type="tool_use", text=None),
+            SimpleNamespace(type="text", text="hello "),
+            SimpleNamespace(type="text", text="world"),
+        ],
+        usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        model="claude-sonnet-5",
+    )
+    sdk = make_sdk([message])
+    client = AnthropicLlmClient(api_key="k", client=sdk)
+    resp = await client.complete(REQ)
+    assert resp.text == "hello world"
