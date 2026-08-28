@@ -11,6 +11,7 @@ Todo:
     None
 """
 
+import contextlib
 import json
 import secrets
 import sqlite3
@@ -121,7 +122,7 @@ def save_run(run: EvalRun, *, db_path: Path, json_dir: Path) -> Path:
     json_dir.mkdir(parents=True, exist_ok=True)
     json_path = json_dir / f"{run.run_id}.json"
     json_path.write_text(json.dumps(run_to_dict(run), indent=2))
-    with sqlite3.connect(db_path) as conn:
+    with contextlib.closing(sqlite3.connect(db_path)) as conn:
         conn.execute(CREATE_RUNS_TABLE)
         conn.execute(
             "INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -130,13 +131,14 @@ def save_run(run: EvalRun, *, db_path: Path, json_dir: Path) -> Path:
                 run.status.value, run.pass_rate, run.total_cost_usd, run.git_sha, str(json_path),
             ),
         )
+        conn.commit()
     return json_path
 
 
 def list_recent_runs(db_path: Path, *, dataset_version: str, limit: int) -> list[EvalRun]:
     if not db_path.exists():
         return []
-    with sqlite3.connect(db_path) as conn:
+    with contextlib.closing(sqlite3.connect(db_path)) as conn:
         rows = conn.execute(
             "SELECT json_path FROM runs WHERE dataset_version = ? "
             "ORDER BY created_at DESC, run_id DESC LIMIT ?",
