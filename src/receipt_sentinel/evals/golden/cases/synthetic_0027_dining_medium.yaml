@@ -1,0 +1,38 @@
+id: synthetic_0027_dining_medium
+difficulty: medium
+source: synthetic
+notes: variant=tip
+email_date: '2026-08-19'
+receipt_text: 'BLUE BOTTLE COFFEE
+
+  08/18/2026
+
+  Latte                   $     2.5
+
+  Salmon roll             $   44.69
+
+  Burrito bowl            $   18.78
+
+  Tip                     $     9.7
+
+  TOTAL                   $   75.67
+
+  '
+expected:
+  vendor: Blue Bottle Coffee
+  total: '75.67'
+  currency: USD
+  date: '2026-08-18'
+  category: dining
+  line_items:
+  - description: Latte
+    amount: '2.5'
+  - description: Salmon roll
+    amount: '44.69'
+  - description: Burrito bowl
+    amount: '18.78'
+  - description: Tip
+    amount: '9.7'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

@@ -1,0 +1,30 @@
+id: synthetic_0009_other_easy
+difficulty: easy
+source: synthetic
+notes: variant=plain
+email_date: '2026-08-25'
+receipt_text: 'ETSY
+
+  08/24/2026
+
+  Gift wrap               $   39.74
+
+  USB cable               $   49.16
+
+  TOTAL                   $   88.90
+
+  '
+expected:
+  vendor: Etsy
+  total: '88.90'
+  currency: USD
+  date: '2026-08-24'
+  category: other
+  line_items:
+  - description: Gift wrap
+    amount: '39.74'
+  - description: USB cable
+    amount: '49.16'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

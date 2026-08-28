@@ -1,0 +1,30 @@
+id: synthetic_0034_home_easy
+difficulty: easy
+source: synthetic
+notes: variant=tax
+email_date: '2026-08-12'
+receipt_text: 'IKEA
+
+  08/11/2026
+
+  LED bulb                $   22.82
+
+  Tax                     $     4.3
+
+  TOTAL                   $   27.12
+
+  '
+expected:
+  vendor: IKEA
+  total: '27.12'
+  currency: USD
+  date: '2026-08-11'
+  category: home
+  line_items:
+  - description: LED bulb
+    amount: '22.82'
+  - description: Tax
+    amount: '4.3'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

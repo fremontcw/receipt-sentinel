@@ -1,0 +1,34 @@
+id: synthetic_0008_subscriptions_hard
+difficulty: hard
+source: synthetic
+notes: variant=cropped
+email_date: '2026-08-26'
+receipt_text: '08/25/2026
+
+  Monthly plan            $   55.44
+
+  Team seat               $   48.76
+
+  Premium                 $   48.04
+
+  TOTAL                   $  152.24
+
+  Thank you for shopping at GitHub
+
+  '
+expected:
+  vendor: GitHub
+  total: '152.24'
+  currency: USD
+  date: '2026-08-25'
+  category: subscriptions
+  line_items:
+  - description: Monthly plan
+    amount: '55.44'
+  - description: Team seat
+    amount: '48.76'
+  - description: Premium
+    amount: '48.04'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

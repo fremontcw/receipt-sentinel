@@ -1,0 +1,19 @@
+id: synthetic_0015_utilities_hard
+difficulty: hard
+source: synthetic
+notes: variant=ocr_noise
+email_date: '2026-08-24'
+receipt_text: " AT&T\n 08/23/2026\nWire1ess plan         $   33.69\nTOTAL        \
+  \           $  33.69\n"
+expected:
+  vendor: AT&T
+  total: '33.69'
+  currency: USD
+  date: '2026-08-23'
+  category: utilities
+  line_items:
+  - description: Wireless plan
+    amount: '33.69'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

@@ -1,0 +1,34 @@
+id: synthetic_0006_other_hard
+difficulty: hard
+source: synthetic
+notes: variant=eur
+email_date: '2026-08-22'
+receipt_text: 'AMAZON
+
+  08/21/2026
+
+  USB cable               €   38.77
+
+  Notebook                €   35.58
+
+  Gift wrap               €    8.42
+
+  TOTAL                   €   82.77
+
+  '
+expected:
+  vendor: Amazon
+  total: '82.77'
+  currency: EUR
+  date: '2026-08-21'
+  category: other
+  line_items:
+  - description: USB cable
+    amount: '38.77'
+  - description: Notebook
+    amount: '35.58'
+  - description: Gift wrap
+    amount: '8.42'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

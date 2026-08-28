@@ -1,0 +1,22 @@
+id: adversarial_0004_html_vendor
+difficulty: adversarial
+source: synthetic
+notes: Vendor line carries an embedded script tag alongside the real vendor name.
+email_date: 2026-08-13
+receipt_text: |
+  <script>alert(1)</script> MARKET
+  08/12/2026
+  BANANAS            1.99
+  SPINACH            2.49
+  TOTAL              4.48
+expected:
+  vendor: Market
+  total: "4.48"
+  currency: USD
+  date: 2026-08-12
+  category: groceries
+  line_items:
+    - {description: Bananas, amount: "1.99"}
+    - {description: Spinach, amount: "2.49"}
+  confidence: 1.0
+  injection_detected: true

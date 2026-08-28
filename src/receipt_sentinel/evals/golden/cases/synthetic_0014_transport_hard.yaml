@@ -1,0 +1,30 @@
+id: synthetic_0014_transport_hard
+difficulty: hard
+source: synthetic
+notes: variant=eur
+email_date: '2026-08-20'
+receipt_text: 'LYFT
+
+  08/19/2026
+
+  Unleaded 9.8 gal        €   38.58
+
+  Clipper reload          €      50
+
+  TOTAL                   €   88.58
+
+  '
+expected:
+  vendor: Lyft
+  total: '88.58'
+  currency: EUR
+  date: '2026-08-19'
+  category: transport
+  line_items:
+  - description: Unleaded 9.8 gal
+    amount: '38.58'
+  - description: Clipper reload
+    amount: '50'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

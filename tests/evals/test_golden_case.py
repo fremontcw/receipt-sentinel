@@ -42,7 +42,7 @@ def test_duplicate_ids_raise(tmp_path: Path) -> None:
     """Verify duplicate case ids raise ValueError."""
     cases_dir = tmp_path / "cases"
     cases_dir.mkdir()
-    src = (GOLDEN_DIR / "cases" / "synthetic_0001_groceries_easy.yaml").read_text()
+    src = (GOLDEN_DIR / "cases" / "synthetic_0001_dining_easy.yaml").read_text()
     (cases_dir / "a.yaml").write_text(src)
     (cases_dir / "b.yaml").write_text(src)
     (tmp_path / "dataset_version.txt").write_text("9")
@@ -54,7 +54,7 @@ def test_non_adversarial_case_must_not_expect_injection(tmp_path: Path) -> None:
     """Verify non-adversarial cases cannot have injection_detected=true."""
     cases_dir = tmp_path / "cases"
     cases_dir.mkdir()
-    src = (GOLDEN_DIR / "cases" / "synthetic_0001_groceries_easy.yaml").read_text()
+    src = (GOLDEN_DIR / "cases" / "synthetic_0001_dining_easy.yaml").read_text()
     bad_src = src.replace("injection_detected: false", "injection_detected: true")
     (cases_dir / "a.yaml").write_text(bad_src)
     (tmp_path / "dataset_version.txt").write_text("9")

@@ -1,0 +1,24 @@
+id: synthetic_0047_health_hard
+difficulty: hard
+source: synthetic
+notes: variant=ocr_noise
+email_date: '2026-08-29'
+receipt_text: "BAY DENTAL\n 08/28/2026\nVitamin D               $   42.22\nIbuprofen\
+  \              $   16.67\nCleaning               $    8.37\nTOTAL              \
+  \   $   67.26\n"
+expected:
+  vendor: Bay Dental
+  total: '67.26'
+  currency: USD
+  date: '2026-08-28'
+  category: health
+  line_items:
+  - description: Vitamin D
+    amount: '42.22'
+  - description: Ibuprofen
+    amount: '16.67'
+  - description: Cleaning
+    amount: '8.37'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

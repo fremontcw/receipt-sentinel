@@ -1,0 +1,24 @@
+id: synthetic_0039_subscriptions_hard
+difficulty: hard
+source: synthetic
+notes: variant=ocr_noise
+email_date: '2026-08-12'
+receipt_text: " NETFLIX\n 08/11/2026\nPremium                 $    1.96\nTeam seat\
+  \             $    4.07\nMonthly plan            $   19.01\nTOTAL              \
+  \     $  25.04\n"
+expected:
+  vendor: Netflix
+  total: '25.04'
+  currency: USD
+  date: '2026-08-11'
+  category: subscriptions
+  line_items:
+  - description: Premium
+    amount: '1.96'
+  - description: Team seat
+    amount: '4.07'
+  - description: Monthly plan
+    amount: '19.01'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

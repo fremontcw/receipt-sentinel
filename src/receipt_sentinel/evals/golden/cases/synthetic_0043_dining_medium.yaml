@@ -1,0 +1,34 @@
+id: synthetic_0043_dining_medium
+difficulty: medium
+source: synthetic
+notes: variant=tip
+email_date: '2026-08-28'
+receipt_text: 'BLUE BOTTLE COFFEE
+
+  08/27/2026
+
+  Latte                   $   45.26
+
+  Miso soup               $   57.76
+
+  Tip                     $    4.65
+
+  TOTAL                   $  107.67
+
+  '
+expected:
+  vendor: Blue Bottle Coffee
+  total: '107.67'
+  currency: USD
+  date: '2026-08-27'
+  category: dining
+  line_items:
+  - description: Latte
+    amount: '45.26'
+  - description: Miso soup
+    amount: '57.76'
+  - description: Tip
+    amount: '4.65'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
