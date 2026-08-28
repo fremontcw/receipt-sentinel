@@ -31,6 +31,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run = evals.add_parser("run", help="run golden evals, diff vs baseline, write report")
     run.add_argument("--fake", action="store_true", help="use FakeLlmClient (no API key)")
+    run.add_argument(
+        "--demo-noise",
+        action="store_true",
+        help="with --fake: mis-categorise ~6%% of cases so the demo shows a regression",
+    )
     run.add_argument("--no-save", action="store_true", help="do not store the run")
     run.add_argument("--out", type=Path, default=Path("runs"))
     run.add_argument("--report-url", default=None)
@@ -59,5 +64,6 @@ def main(argv: list[str] | None = None) -> int:
             save=not args.no_save,
             slack_webhook=os.environ.get("SLACK_WEBHOOK_URL"),
             report_url=args.report_url,
+            demo_noise=args.demo_noise,
         )
     return command_promote_baseline(paths, args.run_id)

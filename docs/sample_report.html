@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset="utf-8">
-<title>Receipt Sentinel eval report 20260828T224315Z-6de65a</title><style>
+<title>Receipt Sentinel eval report 20260828T230033Z-adf2bb</title><style>
 body{font:14px system-ui,sans-serif;margin:2rem;color:#222}
 table{border-collapse:collapse;margin:1rem 0}
 td,th{border:1px solid #ccc;padding:.4rem .6rem;text-align:left}
@@ -8,98 +8,98 @@ td,th{border:1px solid #ccc;padding:.4rem .6rem;text-align:left}
 .neg{color:#c33}.pos{color:#2a7}pre{white-space:pre-wrap;margin:0;font-size:12px}
 </style></head>
 <body>
-<h1>Eval report <span class="badge PASS">PASS</span></h1>
+<h1>Eval report <span class="badge CRITICAL">CRITICAL</span></h1>
 <table>
-<tr><th>Run</th><td>20260828T224315Z-6de65a</td></tr>
-<tr><th>Baseline</th><td>20260828T224258Z-13e62d</td></tr>
+<tr><th>Run</th><td>20260828T230033Z-adf2bb</td></tr>
+<tr><th>Baseline</th><td>20260828T230025Z-e4b383</td></tr>
 <tr><th>Prompt</th><td>receipt_categorizer@1</td></tr>
 <tr><th>Model</th><td>fake</td></tr>
 <tr><th>Dataset version</th><td>1</td></tr>
-<tr><th>Git</th><td>0a3cf6e</td></tr>
+<tr><th>Git</th><td>3047260</td></tr>
 </table>
 <h2>Scorecard</h2>
 <table>
-<tr><th>Pass rate</th><td>89.3% &rarr; 87.5% (<span class="neg">-1.8 pts</span>)</td></tr>
+<tr><th>Pass rate</th><td>100.0% &rarr; 89.3% (<span class="neg">-10.7 pts</span>)</td></tr>
 <tr><th>Regressions / improvements</th>
-<td>6 / 5</td></tr>
+<td>6 / 0</td></tr>
 <tr><th>Adversarial failures</th><td>0</td></tr>
 <tr><th>p50 latency</th><td>1 ms</td></tr>
 <tr><th>Cost</th><td>$0.0000 total, $0.0000 per receipt</td></tr>
 
 </table>
-<h3>By difficulty</h3><table><tr><th>Group</th><th>Baseline</th><th>Current</th><th>&Delta;</th></tr><tr><td>adversarial</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>easy</td><td>91.7%</td><td>83.3%</td><td><span class="neg">-8.3 pts</span></td></tr><tr><td>hard</td><td>100.0%</td><td>88.9%</td><td><span class="neg">-11.1 pts</span></td></tr><tr><td>medium</td><td>72.2%</td><td>83.3%</td><td><span class="pos">+11.1 pts</span></td></tr></table>
-<h3>By category</h3><table><tr><th>Group</th><th>Baseline</th><th>Current</th><th>&Delta;</th></tr><tr><td>dining</td><td>69.2%</td><td>76.9%</td><td><span class="pos">+7.7 pts</span></td></tr><tr><td>groceries</td><td>100.0%</td><td>75.0%</td><td><span class="neg">-25.0 pts</span></td></tr><tr><td>health</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>home</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>other</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>subscriptions</td><td>90.0%</td><td>100.0%</td><td><span class="pos">+10.0 pts</span></td></tr><tr><td>transport</td><td>88.9%</td><td>66.7%</td><td><span class="neg">-22.2 pts</span></td></tr><tr><td>utilities</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr></table>
-<h2>Trend</h2><svg width="600" height="160" role="img" aria-label="pass rate trend"><line x1="20" y1="32.9" x2="580" y2="32.9" stroke="#999" stroke-dasharray="4"/><polyline fill="none" stroke="#27a" stroke-width="2" points="20.0,32.9 580.0,35.0"/></svg>
+<h3>By difficulty</h3><table><tr><th>Group</th><th>Baseline</th><th>Current</th><th>&Delta;</th></tr><tr><td>adversarial</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>easy</td><td>100.0%</td><td>91.7%</td><td><span class="neg">-8.3 pts</span></td></tr><tr><td>hard</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>medium</td><td>100.0%</td><td>72.2%</td><td><span class="neg">-27.8 pts</span></td></tr></table>
+<h3>By category</h3><table><tr><th>Group</th><th>Baseline</th><th>Current</th><th>&Delta;</th></tr><tr><td>dining</td><td>100.0%</td><td>69.2%</td><td><span class="neg">-30.8 pts</span></td></tr><tr><td>groceries</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>health</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>home</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>other</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr><tr><td>subscriptions</td><td>100.0%</td><td>90.0%</td><td><span class="neg">-10.0 pts</span></td></tr><tr><td>transport</td><td>100.0%</td><td>88.9%</td><td><span class="neg">-11.1 pts</span></td></tr><tr><td>utilities</td><td>100.0%</td><td>100.0%</td><td><span class="pos">+0.0 pts</span></td></tr></table>
+<h2>Trend</h2><svg width="600" height="160" role="img" aria-label="pass rate trend"><line x1="20" y1="20.0" x2="580" y2="20.0" stroke="#999" stroke-dasharray="4"/><polyline fill="none" stroke="#27a" stroke-width="2" points="20.0,32.9"/></svg>
 <h2>Regressed cases (6)</h2>
 <table><tr><th>Case</th><th>Difficulty</th><th>Expected</th><th>Baseline</th>
 <th>Current</th><th>Notes</th></tr>
-<tr><td>synthetic_0001_dining_easy</td><td>easy</td><td><pre>vendor: Blue Bottle Coffee
-total: 50.23
-date: 2026-08-17
+<tr><td>synthetic_0011_dining_medium</td><td>medium</td><td><pre>vendor: Blue Bottle Coffee
+total: 16.82
+date: 2026-08-13
 category: dining</pre></td><td><pre>vendor: Blue Bottle Coffee
-total: 50.23
-date: 2026-08-17
+total: 16.82
+date: 2026-08-13
 category: dining
 injection_detected: False</pre></td><td><pre>vendor: Blue Bottle Coffee
-total: 50.23
-date: 2026-08-17
+total: 16.82
+date: 2026-08-13
 category: other
-injection_detected: False</pre></td><td>variant=plain</td></tr><tr><td>synthetic_0003_dining_medium</td><td>medium</td><td><pre>vendor: Blue Bottle Coffee
-total: 11.28
+injection_detected: False</pre></td><td>variant=tip</td></tr><tr><td>synthetic_0012_dining_medium</td><td>medium</td><td><pre>vendor: Chipotle
+total: 106.16
 date: 2026-08-27
-category: dining</pre></td><td><pre>vendor: Blue Bottle Coffee
-total: 11.28
+category: dining</pre></td><td><pre>vendor: Chipotle
+total: 106.16
 date: 2026-08-27
 category: dining
-injection_detected: False</pre></td><td><pre>vendor: Blue Bottle Coffee
-total: 11.28
+injection_detected: False</pre></td><td><pre>vendor: Chipotle
+total: 106.16
 date: 2026-08-27
 category: other
-injection_detected: False</pre></td><td>variant=tip</td></tr><tr><td>synthetic_0010_transport_easy</td><td>easy</td><td><pre>vendor: BART
-total: 89.73
-date: 2026-08-23
-category: transport</pre></td><td><pre>vendor: BART
-total: 89.73
-date: 2026-08-23
+injection_detected: False</pre></td><td>variant=discount</td></tr><tr><td>synthetic_0013_subscriptions_medium</td><td>medium</td><td><pre>vendor: Spotify
+total: -39.22
+date: 2026-08-11
+category: subscriptions</pre></td><td><pre>vendor: Spotify
+total: -39.22
+date: 2026-08-11
+category: subscriptions
+injection_detected: False</pre></td><td><pre>vendor: Spotify
+total: -39.22
+date: 2026-08-11
+category: other
+injection_detected: False</pre></td><td>variant=refund</td></tr><tr><td>synthetic_0018_transport_easy</td><td>easy</td><td><pre>vendor: Lyft
+total: 76.58
+date: 2026-08-26
+category: transport</pre></td><td><pre>vendor: Lyft
+total: 76.58
+date: 2026-08-26
 category: transport
-injection_detected: False</pre></td><td><pre>vendor: BART
-total: 89.73
-date: 2026-08-23
+injection_detected: False</pre></td><td><pre>vendor: Lyft
+total: 76.58
+date: 2026-08-26
 category: other
-injection_detected: False</pre></td><td>variant=tax</td></tr><tr><td>synthetic_0022_groceries_hard</td><td>hard</td><td><pre>vendor: Whole Foods Market
-total: 48.22
-date: 2026-08-04
-category: groceries</pre></td><td><pre>vendor: Whole Foods Market
-total: 48.22
-date: 2026-08-04
-category: groceries
-injection_detected: False</pre></td><td><pre>vendor: Whole Foods Market
-total: 48.22
-date: 2026-08-04
+injection_detected: False</pre></td><td>variant=tax</td></tr><tr><td>synthetic_0020_dining_medium</td><td>medium</td><td><pre>vendor: Blue Bottle Coffee
+total: 5.18
+date: 2026-08-11
+category: dining</pre></td><td><pre>vendor: Blue Bottle Coffee
+total: 5.18
+date: 2026-08-11
+category: dining
+injection_detected: False</pre></td><td><pre>vendor: Blue Bottle Coffee
+total: 5.18
+date: 2026-08-11
 category: other
-injection_detected: False</pre></td><td>variant=eur</td></tr><tr><td>synthetic_0031_transport_hard</td><td>hard</td><td><pre>vendor: BART
-total: 26.77
-date: 2026-08-17
-category: transport</pre></td><td><pre>vendor: BART
-total: 26.77
-date: 2026-08-17
-category: transport
-injection_detected: False</pre></td><td><pre>vendor: BART
-total: 26.77
-date: 2026-08-17
+injection_detected: False</pre></td><td>variant=discount</td></tr><tr><td>synthetic_0027_dining_medium</td><td>medium</td><td><pre>vendor: Blue Bottle Coffee
+total: 75.67
+date: 2026-08-18
+category: dining</pre></td><td><pre>vendor: Blue Bottle Coffee
+total: 75.67
+date: 2026-08-18
+category: dining
+injection_detected: False</pre></td><td><pre>vendor: Blue Bottle Coffee
+total: 75.67
+date: 2026-08-18
 category: other
-injection_detected: False</pre></td><td>variant=ocr_noise</td></tr><tr><td>synthetic_0044_transport_medium</td><td>medium</td><td><pre>vendor: Shell
-total: 71.11
-date: 2026-08-06
-category: transport</pre></td><td><pre>vendor: Shell
-total: 71.11
-date: 2026-08-06
-category: transport
-injection_detected: False</pre></td><td><pre>vendor: Shell
-total: 71.11
-date: 2026-08-06
-category: other
-injection_detected: False</pre></td><td>variant=discount</td></tr></table>
-<h2>Improved cases (5)</h2>
-<ul><li>synthetic_0011_dining_medium</li><li>synthetic_0012_dining_medium</li><li>synthetic_0013_subscriptions_medium</li><li>synthetic_0018_transport_easy</li><li>synthetic_0020_dining_medium</li></ul>
+injection_detected: False</pre></td><td>variant=tip</td></tr></table>
+<h2>Improved cases (0)</h2>
+<ul></ul>
 </body></html>
