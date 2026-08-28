@@ -23,11 +23,12 @@ from receipt_sentinel.categorize.llm_client import LlmRequest, LlmTransientError
 REQ = LlmRequest(system="sys", user="usr", max_tokens=256, model_id="claude-sonnet-5")
 
 
-def fake_message(text: str) -> SimpleNamespace:
+def fake_message(text: str, stop_reason: str = "end_turn") -> SimpleNamespace:
     return SimpleNamespace(
         content=[SimpleNamespace(type="text", text=text)],
         usage=SimpleNamespace(input_tokens=10, output_tokens=5),
         model="claude-sonnet-5",
+        stop_reason=stop_reason,
     )
 
 
@@ -81,8 +82,23 @@ async def test_extracts_text_only_from_mixed_content_blocks() -> None:
         ],
         usage=SimpleNamespace(input_tokens=1, output_tokens=1),
         model="claude-sonnet-5",
+        stop_reason="end_turn",
     )
     sdk = make_sdk([message])
     client = AnthropicLlmClient(api_key="k", client=sdk)
     resp = await client.complete(REQ)
     assert resp.text == "hello world"
+
+
+async def test_disables_adaptive_thinking() -> None:
+    # Thinking tokens count against max_tokens on claude-sonnet-5 and would truncate
+    # the JSON reply, so the adapter must always opt out.
+    sdk = make_sdk([fake_message('{"ok":1}')])
+    await AnthropicLlmClient(api_key="k", client=sdk).complete(REQ)
+    assert sdk.messages.create.call_args.kwargs["thinking"] == {"type": "disabled"}
+
+
+async def test_truncated_reply_is_surfaced_as_stop_reason() -> None:
+    sdk = make_sdk([fake_message('{"vendor": "ACM', stop_reason="max_tokens")])
+    resp = await AnthropicLlmClient(api_key="k", client=sdk).complete(REQ)
+    assert resp.stop_reason == "max_tokens"

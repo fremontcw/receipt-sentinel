@@ -8,7 +8,7 @@ from receipt_sentinel.categorize.categorize_receipt import (
     build_user_message,
     categorize_receipt,
 )
-from receipt_sentinel.categorize.llm_client import FakeLlmClient, LlmRequest
+from receipt_sentinel.categorize.llm_client import FakeLlmClient, LlmRequest, LlmResponse
 from receipt_sentinel.prompts.prompt_config import PROMPTS_DIR, load_prompt_config
 
 PROMPT = load_prompt_config(PROMPTS_DIR / "receipt_categorizer_v1.yaml")
@@ -82,3 +82,21 @@ async def test_long_receipt_is_truncated() -> None:
         "A" * (MAX_RECEIPT_CHARS + 500), PROMPT, client, model_id="m"
     )
     assert len(seen[0].user) < MAX_RECEIPT_CHARS + len(PROMPT.system) + 2000
+
+
+async def test_truncated_response_is_a_parse_failure() -> None:
+    """A max_tokens cut-off is reported as truncation, not as a vague schema error."""
+
+    class Truncating:
+        async def complete(self, request: LlmRequest) -> LlmResponse:
+            return LlmResponse(
+                text='{"vendor": "Ly',
+                input_tokens=10,
+                output_tokens=2048,
+                latency_ms=5,
+                model_id=request.model_id,
+                stop_reason="max_tokens",
+            )
+
+    with pytest.raises(ParseFailure, match="truncated"):
+        await categorize_receipt("Lyft ride", PROMPT, Truncating(), model_id="claude-sonnet-5")

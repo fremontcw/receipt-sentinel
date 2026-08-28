@@ -1,10 +1,12 @@
 """anthropic_llm_client
 
 LlmClient adapter for the Anthropic Messages API. Pins an exact model id, max_tokens,
-and a timeout; retries 429/5xx/timeouts with exponential backoff.
+and a timeout; disables adaptive thinking; retries 429/5xx/timeouts with exponential backoff.
 
 Status:
-    None
+    Thinking is disabled explicitly — adaptive thinking is on by default on claude-sonnet-5
+    and its tokens count against max_tokens, which truncated the JSON reply. Truncation is
+    surfaced to the caller as LlmResponse.stop_reason == "max_tokens".
 Issues:
     Does not pass `temperature` to the API. The installed anthropic SDK (1.2.0) no longer
     types `temperature` as a `messages.create()` parameter, and claude-sonnet-5 itself
@@ -65,6 +67,10 @@ class AnthropicLlmClient:
             max_tokens=request.max_tokens,
             system=request.system,
             messages=[{"role": "user", "content": request.user}],
+            # claude-sonnet-5 runs adaptive thinking by default and thinking tokens count
+            # against max_tokens — leaving it on truncates the JSON reply. This is a
+            # single-shot strict-JSON extraction; it does not need reasoning tokens.
+            thinking={"type": "disabled"},
         )
         latency_ms = int((time.perf_counter() - started) * 1000)
         text = "".join(
@@ -78,4 +84,5 @@ class AnthropicLlmClient:
             output_tokens=message.usage.output_tokens,
             latency_ms=latency_ms,
             model_id=message.model,
+            stop_reason=message.stop_reason,
         )

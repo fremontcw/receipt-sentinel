@@ -71,7 +71,7 @@ async def categorize_receipt(
     client: LlmClient,
     *,
     model_id: str,
-    max_tokens: int = 1024,
+    max_tokens: int = 2048,
 ) -> CategorizeResult:
     request = LlmRequest(
         system=prompt.system,
@@ -80,6 +80,10 @@ async def categorize_receipt(
         model_id=model_id,
     )
     response = await client.complete(request)
+    if response.stop_reason == "max_tokens":
+        # Cut off mid-JSON. Score it as a parse failure rather than letting a partial
+        # object fail schema validation with a misleading reason.
+        raise ParseFailure(response.text, "truncated: stop_reason=max_tokens")
     output = parse_model_output(response.text)
     record = ReceiptRecord.from_model_output(
         output, model_id=model_id, prompt_version=prompt.version

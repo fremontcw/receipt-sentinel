@@ -30,6 +30,10 @@ class LlmResponse:
     output_tokens: int
     latency_ms: int
     model_id: str
+    # Provider's stop reason, when it exposes one. "max_tokens" means the reply was cut
+    # off mid-JSON; categorize_receipt turns that into a ParseFailure. Carried as data so
+    # the client layer never has to import the parser (circular).
+    stop_reason: str | None = None
 
 
 class LlmTransientError(Exception):
