@@ -1,0 +1,7 @@
+# USD per million tokens. Source: claude-api skill / Anthropic pricing page, checked 2026-08-28.
+claude-sonnet-5:
+  usd_per_million_input: 2.00
+  usd_per_million_output: 10.00
+fake:
+  usd_per_million_input: 0.0
+  usd_per_million_output: 0.0

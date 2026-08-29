@@ -1,0 +1,42 @@
+id: synthetic_0036_dining_medium
+difficulty: medium
+source: synthetic
+notes: variant=discount
+email_date: '2026-08-11'
+receipt_text: 'BLUE BOTTLE COFFEE
+
+  08/10/2026
+
+  Miso soup               $   56.22
+
+  Latte                   $   34.55
+
+  Burrito bowl            $   28.59
+
+  Salmon roll             $    8.78
+
+  Discount                $   -4.47
+
+  TOTAL                   $  123.67
+
+  '
+expected:
+  vendor: Blue Bottle Coffee
+  total: '123.67'
+  currency: USD
+  date: '2026-08-10'
+  category: dining
+  line_items:
+  - description: Miso soup
+    amount: '56.22'
+  - description: Latte
+    amount: '34.55'
+  - description: Burrito bowl
+    amount: '28.59'
+  - description: Salmon roll
+    amount: '8.78'
+  - description: Discount
+    amount: '-4.47'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

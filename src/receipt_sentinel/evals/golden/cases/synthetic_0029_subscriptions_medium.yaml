@@ -1,0 +1,30 @@
+id: synthetic_0029_subscriptions_medium
+difficulty: medium
+source: synthetic
+notes: variant=refund
+email_date: '2026-08-03'
+receipt_text: 'SPOTIFY
+
+  08/02/2026
+
+  Refund: Monthly plan    $  -25.19
+
+  Refund: Premium         $  -45.33
+
+  TOTAL                   $  -70.52
+
+  '
+expected:
+  vendor: Spotify
+  total: '-70.52'
+  currency: USD
+  date: '2026-08-02'
+  category: subscriptions
+  line_items:
+  - description: 'Refund: Monthly plan'
+    amount: '-25.19'
+  - description: 'Refund: Premium'
+    amount: '-45.33'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

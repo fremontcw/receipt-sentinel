@@ -1,0 +1,38 @@
+id: synthetic_0018_transport_easy
+difficulty: easy
+source: synthetic
+notes: variant=tax
+email_date: '2026-08-27'
+receipt_text: 'LYFT
+
+  08/26/2026
+
+  Ride fare               $    9.68
+
+  Unleaded 9.8 gal        $   57.07
+
+  Clipper reload          $    5.95
+
+  Tax                     $    3.88
+
+  TOTAL                   $   76.58
+
+  '
+expected:
+  vendor: Lyft
+  total: '76.58'
+  currency: USD
+  date: '2026-08-26'
+  category: transport
+  line_items:
+  - description: Ride fare
+    amount: '9.68'
+  - description: Unleaded 9.8 gal
+    amount: '57.07'
+  - description: Clipper reload
+    amount: '5.95'
+  - description: Tax
+    amount: '3.88'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

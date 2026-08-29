@@ -1,0 +1,30 @@
+id: synthetic_0037_other_medium
+difficulty: medium
+source: synthetic
+notes: variant=refund
+email_date: '2026-08-29'
+receipt_text: 'ETSY
+
+  08/28/2026
+
+  Refund: Notebook        $   -54.1
+
+  Refund: Gift wrap       $  -28.07
+
+  TOTAL                   $  -82.17
+
+  '
+expected:
+  vendor: Etsy
+  total: '-82.17'
+  currency: USD
+  date: '2026-08-28'
+  category: other
+  line_items:
+  - description: 'Refund: Notebook'
+    amount: '-54.1'
+  - description: 'Refund: Gift wrap'
+    amount: '-28.07'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

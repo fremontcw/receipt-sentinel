@@ -1,0 +1,24 @@
+id: synthetic_0023_health_hard
+difficulty: hard
+source: synthetic
+notes: variant=ocr_noise
+email_date: '2026-08-26'
+receipt_text: " WALGREENS\n 08/25/2026\nCleaning                $   26.89\nIbuprofen\
+  \             $   50.78\nVitamin D             $   18.66\nTOTAL                \
+  \  $   96.33\n"
+expected:
+  vendor: Walgreens
+  total: '96.33'
+  currency: USD
+  date: '2026-08-25'
+  category: health
+  line_items:
+  - description: Cleaning
+    amount: '26.89'
+  - description: Ibuprofen
+    amount: '50.78'
+  - description: Vitamin D
+    amount: '18.66'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

@@ -1,0 +1,34 @@
+id: synthetic_0045_home_medium
+difficulty: medium
+source: synthetic
+notes: variant=refund
+email_date: '2026-08-21'
+receipt_text: 'ACE HARDWARE
+
+  08/20/2026
+
+  Refund: Paint roller    $  -19.09
+
+  Refund: Wood screws     $  -43.15
+
+  Refund: LED bulb        $  -30.83
+
+  TOTAL                   $  -93.07
+
+  '
+expected:
+  vendor: Ace Hardware
+  total: '-93.07'
+  currency: USD
+  date: '2026-08-20'
+  category: home
+  line_items:
+  - description: 'Refund: Paint roller'
+    amount: '-19.09'
+  - description: 'Refund: Wood screws'
+    amount: '-43.15'
+  - description: 'Refund: LED bulb'
+    amount: '-30.83'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

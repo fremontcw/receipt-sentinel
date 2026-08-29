@@ -1,0 +1,30 @@
+id: synthetic_0040_home_hard
+difficulty: hard
+source: synthetic
+notes: variant=cropped
+email_date: '2026-08-29'
+receipt_text: '08/28/2026
+
+  Paint roller            $   23.17
+
+  Wood screws             $   59.68
+
+  TOTAL                   $   82.85
+
+  Thank you for shopping at Ace Hardware
+
+  '
+expected:
+  vendor: Ace Hardware
+  total: '82.85'
+  currency: USD
+  date: '2026-08-28'
+  category: home
+  line_items:
+  - description: Paint roller
+    amount: '23.17'
+  - description: Wood screws
+    amount: '59.68'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

@@ -1,0 +1,34 @@
+id: synthetic_0044_transport_medium
+difficulty: medium
+source: synthetic
+notes: variant=discount
+email_date: '2026-08-07'
+receipt_text: 'SHELL
+
+  08/06/2026
+
+  Clipper reload          $    16.2
+
+  Ride fare               $   56.69
+
+  Discount                $   -1.78
+
+  TOTAL                   $   71.11
+
+  '
+expected:
+  vendor: Shell
+  total: '71.11'
+  currency: USD
+  date: '2026-08-06'
+  category: transport
+  line_items:
+  - description: Clipper reload
+    amount: '16.2'
+  - description: Ride fare
+    amount: '56.69'
+  - description: Discount
+    amount: '-1.78'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
