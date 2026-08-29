@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-08-29T13:38:41.530Z",
+  "phase": "1",
+  "phase_name": "eval-harness (spec §7 steps 1–5)",
+  "phase_dir": ".planning",
+  "plan": 1,
+  "task": 19,
+  "total_tasks": 19,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Project scaffold (uv, ruff, mypy, pytest)", "status": "done", "commit": "56da53c"},
+    {"id": 2, "name": "ReceiptRecord schema", "status": "done", "commit": "8a8b350"},
+    {"id": 3, "name": "Versioned prompt config", "status": "done", "commit": "f2e9411"},
+    {"id": 4, "name": "LlmClient protocol + FakeLlmClient", "status": "done", "commit": "680b5ff"},
+    {"id": 5, "name": "AnthropicLlmClient", "status": "done", "commit": "5aabfdf"},
+    {"id": 6, "name": "categorize_receipt", "status": "done", "commit": "32e0f94"},
+    {"id": 7, "name": "Golden case schema/loader/dataset card", "status": "done", "commit": "ea8d904"},
+    {"id": 8, "name": "Synthetic generator + adversarial cases (56 total)", "status": "done", "commit": "a3fe547"},
+    {"id": 9, "name": "Redaction checklist (author does real receipts)", "status": "done", "commit": "9dd52d9"},
+    {"id": 10, "name": "Per-case scoring", "status": "done", "commit": "dfd665a"},
+    {"id": 11, "name": "Run store (SQLite + JSON)", "status": "done", "commit": "e1ff568"},
+    {"id": 12, "name": "Thresholds + status classification", "status": "done", "commit": "23089d1"},
+    {"id": 13, "name": "Diff vs baseline + drift", "status": "done", "commit": "bb34f8f"},
+    {"id": 14, "name": "Async runner", "status": "done", "commit": "8834929"},
+    {"id": 15, "name": "HTML report", "status": "done", "commit": "cf2687c"},
+    {"id": 16, "name": "Slack alerts", "status": "done", "commit": "0a3cf6e"},
+    {"id": 17, "name": "CLI + make demo + sample report", "status": "done", "commit": "6f789a5"},
+    {"id": 18, "name": "GitHub Actions workflows", "status": "done", "commit": "aa01ac8"},
+    {"id": 19, "name": "README (executor half)", "status": "done", "commit": "3047260"}
+  ],
+  "remaining_tasks": [
+    {"id": 20, "name": "Author: first real model run + promote-baseline + commit baseline.json", "status": "not_started"},
+    {"id": 21, "name": "Author: add redacted real receipts (target ~20), bump dataset_version, re-baseline", "status": "not_started"},
+    {"id": 22, "name": "Author: docs/sample_report.png screenshot; uncomment README image line", "status": "not_started"},
+    {"id": 23, "name": "Author: push main; add ANTHROPIC_API_KEY (+ optional SLACK_WEBHOOK_URL) repo secrets", "status": "not_started"},
+    {"id": 24, "name": "Next plan: spec §7 steps 6–9 (extract, validate, ingest+allowlist, checklist, Docker) via superpowers:writing-plans", "status": "not_started"}
+  ],
+  "blockers": [],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {"action": "Run `uv run sentinel evals run --out runs/local` with ANTHROPIC_API_KEY, then `uv run sentinel evals promote-baseline <run_id> --out runs/local`, commit src/receipt_sentinel/evals/baseline.json", "context": "No real-model baseline exists yet; evals.yml gate needs it", "blocking": true},
+    {"action": "Add repo secrets ANTHROPIC_API_KEY and optionally SLACK_WEBHOOK_URL; push main", "context": "CI eval gate is inert without them; nothing has been pushed (origin/main still at dfff820)", "blocking": true},
+    {"action": "Eyeball config/model_pricing.yaml ($2/$10 per Mtok for claude-sonnet-5) against the first real-run cost line", "context": "Pricing came from the claude-api skill and was not independently re-verified", "blocking": false},
+    {"action": "Redact and label real receipts per scripts/redaction_checklist.md (use `sentinel evals promote <txt> --id real_NNNN_...`)", "context": "Golden set is 56 synthetic/adversarial, 0 real_redacted", "blocking": false},
+    {"action": "Capture docs/sample_report.png from docs/sample_report.html", "context": "README has a commented placeholder", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "temperature=0 (spec §4.3) is NOT sent", "rationale": "anthropic SDK 1.2.0 messages.create has no temperature param and claude-sonnet-5 rejects sampling params; determinism comes from baseline diffing + thresholds", "phase": "1"},
+    {"decision": "thinking={'type':'disabled'}, max_tokens=2048, stop_reason=='max_tokens' → ParseFailure('truncated')", "rationale": "claude-sonnet-5 uses adaptive thinking by default; thinking tokens count against max_tokens and would truncate JSON", "phase": "1"},
+    {"decision": "--fake = clean deterministic oracle against baseline_fake.json; --demo-noise adds a %17 mis-categoriser so `make demo` renders a CRITICAL regression; real runs use baseline.json", "rationale": "CI smoke run and demo cannot share one fake baseline", "phase": "1"},
+    {"decision": "Provider-errored cases are excluded from pass-rate denominators, group deltas, adversarial_failures and flips; >5% provider errors → PROVIDER_UNSTABLE (reported, never stored)", "rationale": "A transient 5xx must not read as a model regression / merge block", "phase": "1"},
+    {"decision": "Drift is local-only (CI uses --no-save)", "rationale": "No run-history persistence in CI; documented in README", "phase": "1"},
+    {"decision": "Golden fixtures are pre-extracted text, not PDFs", "rationale": "Extract layer lands in the next plan; isolates the LLM step", "phase": "1"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Author: set ANTHROPIC_API_KEY, run `uv run sentinel evals run --out runs/local`, check cost/p50/adversarial=0 in runs/local/report.html, then promote-baseline and commit baseline.json. Then push and add secrets. Then `superpowers:writing-plans` on the spec for steps 6–9.",
+  "context_notes": "Phase 1 fully merged to local main (merge 1cdf1dc, handoff note db16836). Worktree removed, branch deleted. Verified on main: 74 tests, ruff, mypy --strict, keyless `make demo` all green. Nothing pushed. The implementation plan is docs/superpowers/plans/2026-08-28-receipt-sentinel-eval-harness.md; it was executed via subagent-driven development with per-task reviews and a final whole-branch review + fix wave. The SDD ledger was deleted after completion (git history is the record)."
+}
