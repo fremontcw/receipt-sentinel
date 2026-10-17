@@ -24,6 +24,7 @@ src/receipt_sentinel/
 │   ├── categorize_receipt.py
 │   ├── llm_client.py           LlmClient protocol
 │   ├── anthropic_llm_client.py Real client (claude-sonnet-5, thinking disabled)
+│   ├── azure_foundry_llm_client.py Same model via Microsoft Foundry (--provider azure)
 │   └── receipt_record.py       Pydantic output schema
 ├── prompts/             Versioned YAML prompts (id, version, created_at, system, few-shot)
 ├── telemetry.py         OpenTelemetry: run / case / GenAI chat spans (off unless configured)
@@ -200,8 +201,24 @@ uv run sentinel evals run --out runs/local
 uv run sentinel evals promote-baseline <run_id> --out runs/local
 ```
 
+**Same model on Azure (Microsoft Foundry):**
+
+```bash
+export ANTHROPIC_FOUNDRY_API_KEY=...        # Foundry resource key
+export ANTHROPIC_FOUNDRY_RESOURCE=my-resource   # https://my-resource.services.ai.azure.com/anthropic/
+export ANTHROPIC_FOUNDRY_MODEL=claude-sonnet-5  # deployment name, if different
+uv run sentinel evals run --provider azure --out runs/azure
+```
+
+The Azure adapter hands the SDK's Foundry client to the same
+`AnthropicLlmClient`, so retries, timeouts, and parsing are identical and a
+run on each provider is a like-for-like comparison. It's tested offline
+against a mocked Foundry endpoint; it hasn't been run against a real
+deployment yet. Pricing is looked up by the deployment name, so add it to
+`config/model_pricing.yaml` if it differs.
+
 `evals run` accepts `--fake` (clean label oracle, no API key), `--demo-noise`
-(with `--fake`: inject the demo regression), `--no-save` (don't store the
+(with `--fake`: inject the demo regression), `--provider anthropic|azure`, `--no-save` (don't store the
 run), `--out DIR`, and `--report-url URL` (linked from the Slack alert).
 Turning a real failed receipt into a new golden case:
 
@@ -268,9 +285,11 @@ CRITICAL. Required secret: `ANTHROPIC_API_KEY`. Optional:
   `--no-save`, so only the committed `baseline.json` and `baseline_fake.json`
   persist across runs — drift tracking depends on the author's local run
   store, not a CI-visible one.
-- **One provider.** `LlmClient` is a protocol so a second adapter could be
-  added, but only `AnthropicLlmClient` and `FakeLlmClient` exist; there's no
-  cross-provider regression signal.
+- **Two hosts, one model, no cross-provider diff yet.** Claude runs on the
+  Anthropic API or Microsoft Foundry (`--provider`), but each provider's runs
+  are diffed only against the one baseline; there's no side-by-side
+  provider comparison report, and the Foundry path is verified only against
+  a mocked endpoint.
 
 ## Roadmap
 

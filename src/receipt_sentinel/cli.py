@@ -37,6 +37,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="with --fake: mis-categorise ~6%% of cases so the demo shows a regression",
     )
+    run.add_argument(
+        "--provider",
+        choices=("anthropic", "azure"),
+        default="anthropic",
+        help="where the real model runs: Anthropic API, or Claude via Microsoft Foundry",
+    )
     run.add_argument("--no-save", action="store_true", help="do not store the run")
     run.add_argument("--out", type=Path, default=Path("runs"))
     run.add_argument("--report-url", default=None)
@@ -68,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
                 slack_webhook=os.environ.get("SLACK_WEBHOOK_URL"),
                 report_url=args.report_url,
                 demo_noise=args.demo_noise,
+                provider=args.provider,
             )
         finally:
             shutdown_tracing()

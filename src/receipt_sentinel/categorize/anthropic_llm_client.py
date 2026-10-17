@@ -35,7 +35,7 @@ RETRYABLE = (
 class AnthropicLlmClient:
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None = None,
         *,
         timeout_seconds: float = 30.0,
         max_retries: int = 3,

@@ -25,6 +25,14 @@ from pathlib import Path
 import yaml
 
 from receipt_sentinel.categorize.anthropic_llm_client import DEFAULT_MODEL_ID, AnthropicLlmClient
+from receipt_sentinel.categorize.azure_foundry_llm_client import (
+    API_KEY_ENV_VAR,
+    BASE_URL_ENV_VAR,
+    FOUNDRY_PROVIDER_NAME,
+    MODEL_ENV_VAR,
+    RESOURCE_ENV_VAR,
+    build_azure_foundry_llm_client,
+)
 from receipt_sentinel.categorize.llm_client import FakeLlmClient, LlmClient, LlmRequest
 from receipt_sentinel.categorize.receipt_record import Category
 from receipt_sentinel.evals.alerts import build_slack_payload, post_slack_alert
@@ -118,13 +126,24 @@ def _label_oracle(cases: list[GoldenCase], *, noisy: bool) -> FakeLlmClient:
 
 
 def build_client(
-    *, fake: bool, demo_noise: bool, cases: list[GoldenCase]
+    *, fake: bool, demo_noise: bool, cases: list[GoldenCase], provider: str = "anthropic"
 ) -> tuple[LlmClient, str]:
-    """Pick the client for a run: the label oracle under --fake, else the real model."""
+    """Pick the client for a run: the label oracle under --fake, else the real model.
+
+    `provider` is "anthropic" (Anthropic API) or "azure" (the same model via Microsoft
+    Foundry); it is ignored under --fake.
+    """
     if fake:
         return TracingLlmClient(_label_oracle(cases, noisy=demo_noise), "fake"), "fake"
     if demo_noise:
         raise SystemExit("--demo-noise only applies to --fake runs")
+    if provider == "azure":
+        if not os.environ.get(API_KEY_ENV_VAR) or not (
+            os.environ.get(RESOURCE_ENV_VAR) or os.environ.get(BASE_URL_ENV_VAR)
+        ):
+            raise SystemExit(f"set {API_KEY_ENV_VAR} and {RESOURCE_ENV_VAR} for --provider azure")
+        model_id = os.environ.get(MODEL_ENV_VAR, DEFAULT_MODEL_ID)
+        return TracingLlmClient(build_azure_foundry_llm_client(), FOUNDRY_PROVIDER_NAME), model_id
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise SystemExit("ANTHROPIC_API_KEY is not set")
@@ -182,6 +201,7 @@ def command_evals_run(
     slack_webhook: str | None,
     report_url: str | None,
     demo_noise: bool = False,
+    provider: str = "anthropic",
     client_override: LlmClient | None = None,
 ) -> int:
     """Run the golden evals, diff against the baseline, write the report, alert, store.
@@ -193,6 +213,7 @@ def command_evals_run(
         slack_webhook: Incoming-webhook URL, or None to skip alerting.
         report_url: URL linked from the Slack alert.
         demo_noise: With `fake`, mis-categorise ~6% of cases so the demo shows a regression.
+        provider: "anthropic" or "azure" (Claude via Microsoft Foundry) for real runs.
         client_override: Test-only seam — an LlmClient to use instead of building one, so
             tests can exercise the provider-error and regression merge gates without a
             network call. Never set from the CLI.
@@ -203,7 +224,9 @@ def command_evals_run(
     cases = load_golden_cases(paths.golden_dir)
     dataset_version = load_dataset_version(paths.golden_dir)
     thresholds = load_thresholds(paths.thresholds_path)
-    client, model_id = build_client(fake=fake, demo_noise=demo_noise, cases=cases)
+    client, model_id = build_client(
+        fake=fake, demo_noise=demo_noise, cases=cases, provider=provider
+    )
     if client_override is not None:
         client = client_override
     run = asyncio.run(
