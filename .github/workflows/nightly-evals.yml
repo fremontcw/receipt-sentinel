@@ -21,11 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MODE: ${{ inputs.mode || 'real' }}
-      GH_TOKEN: ${{ github.token }}
       REPORT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
       - run: uv python install 3.12
       - run: uv sync
       - name: Run golden evals
@@ -56,6 +55,9 @@ jobs:
           path: runs/nightly/report.html
       - name: Sync regression issue
         if: steps.evals.outputs.skipped != 'true'
+        env:
+          # Only this step can write issues; setup-uv, dependency installs, and the eval never see it.
+          GH_TOKEN: ${{ github.token }}
         run: |
           status=$(cat runs/nightly/status)
           label=eval-regression
