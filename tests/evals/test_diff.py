@@ -1,6 +1,10 @@
 import pytest
 
-from receipt_sentinel.evals.diff import compute_drift, diff_against_baseline
+from receipt_sentinel.evals.diff import (
+    compute_drift,
+    diff_against_baseline,
+    drift_from_pass_rates,
+)
 from receipt_sentinel.evals.golden_case import Difficulty
 from receipt_sentinel.evals.run_store import EvalRun, RunStatus
 from receipt_sentinel.evals.scoring import CaseScore
@@ -91,3 +95,10 @@ def test_pass_rate_ignores_provider_errored_cases() -> None:
     # 1 of 2 scoreable cases passes; the provider error is not in the denominator.
     cur = run("c", [score("a", True), score("b", False), provider_errored("c")])
     assert cur.pass_rate == pytest.approx(0.5)
+
+
+def test_drift_from_pass_rates_needs_full_window() -> None:
+    assert drift_from_pass_rates([0.95] * 6, 0.982, T) is None
+    drift = drift_from_pass_rates([0.95] * 7, 0.982, T)
+    assert drift is not None and drift.drifting
+    assert drift.gap_points == pytest.approx(3.2)

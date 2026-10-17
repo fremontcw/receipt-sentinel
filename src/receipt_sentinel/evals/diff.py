@@ -156,15 +156,27 @@ def diff_against_baseline(
 def compute_drift(
     recent_runs: list[EvalRun], baseline: EvalRun, thresholds: Thresholds
 ) -> DriftResult | None:
-    window = recent_runs[: thresholds.drift_window_runs]
+    return drift_from_pass_rates(
+        [r.pass_rate for r in recent_runs], baseline.pass_rate, thresholds
+    )
+
+
+def drift_from_pass_rates(
+    pass_rates: list[float], baseline_pass_rate: float, thresholds: Thresholds
+) -> DriftResult | None:
+    """Moving-average drift over the newest `drift_window_runs` pass rates (newest first).
+
+    Returns None until a full window exists, so a short history never raises a false flag.
+    """
+    window = pass_rates[: thresholds.drift_window_runs]
     if len(window) < thresholds.drift_window_runs:
         return None
-    moving_average = sum(r.pass_rate for r in window) / len(window)
-    gap_points = (baseline.pass_rate - moving_average) * 100
+    moving_average = sum(window) / len(window)
+    gap_points = (baseline_pass_rate - moving_average) * 100
     return DriftResult(
         window_runs=len(window),
         moving_average_pass_rate=moving_average,
-        baseline_pass_rate=baseline.pass_rate,
+        baseline_pass_rate=baseline_pass_rate,
         gap_points=gap_points,
         drifting=gap_points > thresholds.drift_floor_points,
     )
