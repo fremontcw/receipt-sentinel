@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt Sentinel nightly evals</title><style>
+body{font:14px system-ui,sans-serif;margin:2rem;color:#222}
+table{border-collapse:collapse;margin:1rem 0}
+td,th{border:1px solid #ccc;padding:.4rem .6rem;text-align:left}
+.badge{padding:.2rem .6rem;border-radius:.4rem;color:#fff;font-weight:600}
+.PASS{background:#2a7}.WARN{background:#d90}.CRITICAL{background:#c33}.PROVIDER_UNSTABLE{background:#777}
+.neg{color:#c33}.pos{color:#2a7}pre{white-space:pre-wrap;margin:0;font-size:12px}
+
+body{max-width:960px;margin:2rem auto;padding:0 16px}
+.pipeline{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:1rem 0}
+.step{border:1px solid #ccc;border-radius:.4rem;padding:.4rem .6rem}
+.status{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:.8rem;
+border:1px solid #ddd;border-radius:.5rem}
+.NOT_SCORED{background:#777}.drifting{color:#c33;font-weight:600}
+.table-wrap{overflow-x:auto}svg{max-width:100%;height:auto}
+.muted{color:#666}a{overflow-wrap:anywhere}
+@media (max-width:600px){body{margin:1rem auto}td,th{padding:.3rem .4rem}}
+</style></head><body><h1>Receipt Sentinel: catching LLM regressions before users do</h1><p>Every night an LLM re-reads a hand-labelled set of receipts. Its answers are scored and compared with a blessed baseline; a real drop blocks merges and opens an issue.</p><div class="pipeline"><span class="step">Labelled receipts</span><span aria-hidden="true">&rarr;</span><span class="step">Nightly model run</span><span aria-hidden="true">&rarr;</span><span class="step">Diff vs baseline</span><span aria-hidden="true">&rarr;</span><span class="step">Issue / blocked PR</span></div><h2>Last night</h2><div class="status"><span class="badge PASS">PASS</span><span><b>100.0%</b> of 56 receipts correct</span><span class="muted">claude-sonnet-5 · 2026-10-17 18:16 UTC</span></div><h2>Pass rate, last 1 scored nights</h2><svg viewBox="0 0 600 160" width="600" role="img" aria-label="pass rate trend, last 1 scored nights"><line x1="20.0" y1="51.6" x2="580.0" y2="51.6" stroke="#999" stroke-dasharray="4"/><polyline fill="none" stroke="#27a" stroke-width="2" points="20.0,20.0"/><circle cx="20.0" cy="20.0" r="3" fill="#27a"/></svg><p class="muted">Dashed line: the baseline. Orange marker: a new baseline (drift is measured from there).</p><h2>Night by night</h2><div class="table-wrap"><table><tr><th>Night</th><th>Model</th><th>Pass</th><th>&Delta; pts</th><th>Regressions</th><th>Cost</th><th>Status</th></tr><tr><td><a href="https://github.com/fremontcw/receipt-sentinel/actions/runs/39057359240">2026-10-17</a></td><td>claude-sonnet-5</td><td>100.0%</td><td>+1.8</td><td>0</td><td>$0.19</td><td><span class="badge PASS">PASS</span></td></tr></table></div><p class="muted">Source: <a href="https://github.com/fremontcw/receipt-sentinel">GitHub repository</a></p></body></html>
