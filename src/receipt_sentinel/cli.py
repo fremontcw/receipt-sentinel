@@ -19,6 +19,7 @@ from pathlib import Path
 import anthropic
 
 from receipt_sentinel.categorize.anthropic_llm_client import DEFAULT_MODEL_ID
+from receipt_sentinel.evals.dashboard import command_build_dashboard
 from receipt_sentinel.evals.eval_commands import (
     EvalPaths,
     command_compare_models,
@@ -64,6 +65,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="outputs get published: no receipt-level report unless the golden set is synthetic",
     )
+
+    dash = evals.add_parser("dashboard", help="render the public run-history page")
+    dash.add_argument("--history", type=Path, required=True)
+    dash.add_argument("--out", type=Path, required=True)
+    dash.add_argument("--repo-url", required=True)
 
     skip = evals.add_parser("record-skip", help="record a night that produced no score")
     skip.add_argument("--history", type=Path, required=True)
@@ -115,6 +121,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _dispatch(args: argparse.Namespace) -> int:
+    if args.command == "dashboard":
+        return command_build_dashboard(args.history, args.out, repo_url=args.repo_url)
     if args.command == "record-skip":
         return command_record_skip(args.history, reason=args.reason, run_url=args.run_url)
     if args.command == "promote":
