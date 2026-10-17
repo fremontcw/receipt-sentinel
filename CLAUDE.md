@@ -22,7 +22,7 @@ Goal of the current work: make this repo show a full "AI-native automation engin
 - C# MCP server (`mcp_run_history_server/`, official ModelContextProtocol 2.2.0 SDK, stdio): `list_runs`,
   `what_regressed`. Run ids regex-checked before path use. E2E test `tests/test_mcp_run_history_server.py`
   (skips unless built; CI builds with `-warnaserror`).
-- `sentinel evals compare-models` (model migration gate, uncommitted 2026-10-17): runs incumbent and
+- `sentinel evals compare-models` (model migration gate, 2026-10-17): runs incumbent and
   candidate on the golden set, diffs candidate vs incumbent with the normal thresholds. Strict gate:
   cost/p50 are shown, never gate. Nothing is stored. `make compare-demo` runs keyless. A real model
   needs a `config/model_pricing.yaml` entry (look prices up via the `claude-api` skill).
