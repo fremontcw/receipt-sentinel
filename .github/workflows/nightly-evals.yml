@@ -1,6 +1,7 @@
 name: nightly-evals
 # Catches regressions with no code change (provider-side model or infra changes): runs the
-# golden evals on main every night and keeps one GitHub issue in sync with the verdict.
+# golden evals on main every night, keeps one GitHub issue in sync with the verdict, and
+# publishes the numbers-only history + dashboard to the gh-pages branch (GitHub Pages).
 on:
   schedule:
     - cron: "0 6 * * *"
@@ -19,14 +20,37 @@ concurrency: nightly-evals
 jobs:
   golden:
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.history.outputs.publish }}
     env:
       MODE: ${{ inputs.mode || 'real' }}
       REPORT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # Only real runs on main touch the published history; fake-* demo runs never do.
+      PUBLISH: ${{ (inputs.mode || 'real') == 'real' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
       - run: uv python install 3.12
       - run: uv sync
+      - name: Fetch published history
+        id: history
+        if: env.PUBLISH == 'true'
+        run: |
+          mkdir -p site
+          # Exit 2 = no gh-pages branch yet (first run). Any other failure must stop the run:
+          # starting from an empty history would overwrite the published one.
+          code=0
+          git ls-remote --exit-code --heads origin gh-pages >/dev/null || code=$?
+          if [ "$code" -eq 0 ]; then
+            git fetch --no-tags --depth=1 origin gh-pages
+            git show FETCH_HEAD:history.jsonl > site/history.jsonl 2>/dev/null || true
+          elif [ "$code" -ne 2 ]; then
+            echo "::error::could not read the gh-pages branch (exit $code)"
+            exit 1
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
       - name: Run golden evals
         id: evals
         env:
@@ -34,40 +58,76 @@ jobs:
           # Demo runs must never page Slack.
           SLACK_WEBHOOK_URL: ${{ (inputs.mode || 'real') == 'real' && secrets.SLACK_WEBHOOK_URL || '' }}
         run: |
+          history_args=()
+          if [ "$PUBLISH" = true ]; then history_args=(--history site/history.jsonl); fi
+          skip() {
+            if [ "$PUBLISH" = true ]; then
+              uv run sentinel evals record-skip --history site/history.jsonl --reason "$1" --run-url "$REPORT_URL"
+            fi
+          }
           case "$MODE" in
             fake-regression) args=(--fake --demo-noise) ;;
             fake-clean) args=(--fake) ;;
             *)
               if [ -z "$ANTHROPIC_API_KEY" ]; then
                 echo "::notice::ANTHROPIC_API_KEY is not set; skipping the nightly eval"
-                echo "skipped=true" >> "$GITHUB_OUTPUT"
+                skip "no API key"
+                echo "outcome=skipped" >> "$GITHUB_OUTPUT"
                 exit 0
               fi
               args=() ;;
           esac
-          # Exit 1 means CRITICAL, which the next step handles. Exit 2 means the provider
-          # rejected the request (bad key, no workspace, unknown model): fail loudly here.
-          # A crash leaves no status file and fails the next step instead.
+          # Never exit non-zero here: history must be published before the run goes red.
+          # Exit 1 = CRITICAL or drifting (status file written); exit >= 2 = the provider
+          # rejected the request; exit 1 with no status file = a crash.
           code=0
-          uv run sentinel evals run "${args[@]}" --no-save --out runs/nightly --report-url "$REPORT_URL" || code=$?
+          uv run sentinel evals run "${args[@]}" "${history_args[@]}" --public --no-save \
+            --out runs/nightly --report-url "$REPORT_URL" || code=$?
           if [ "$code" -ge 2 ]; then
-            echo "::error::eval could not run (exit $code); check the ANTHROPIC_API_KEY secret"
-            exit "$code"
+            skip "provider rejected the request (exit $code)"
+            echo "outcome=rejected" >> "$GITHUB_OUTPUT"
+          elif [ ! -f runs/nightly/status ]; then
+            skip "eval crashed (exit $code)"
+            echo "outcome=crashed" >> "$GITHUB_OUTPUT"
+          else
+            echo "outcome=scored" >> "$GITHUB_OUTPUT"
           fi
+      - name: Build dashboard
+        if: env.PUBLISH == 'true'
+        run: >-
+          uv run sentinel evals dashboard --history site/history.jsonl --out site/index.html
+          --repo-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
       - uses: actions/upload-artifact@v4
-        if: steps.evals.outputs.skipped != 'true'
+        if: env.PUBLISH == 'true'
+        with:
+          name: site
+          path: site/
+      - uses: actions/upload-artifact@v4
+        if: steps.evals.outputs.outcome == 'scored'
         with:
           name: nightly-eval-report
           path: runs/nightly/report.html
+          # --public skips the receipt-level report once the golden set has real receipts.
+          if-no-files-found: ignore
+      - name: Fail when the eval could not run
+        if: steps.evals.outputs.outcome == 'rejected' || steps.evals.outputs.outcome == 'crashed'
+        run: |
+          echo "::error::eval did not run (${{ steps.evals.outputs.outcome }}); check the ANTHROPIC_API_KEY secret and the log above"
+          exit 1
       - name: Sync regression issue
-        if: steps.evals.outputs.skipped != 'true'
+        if: steps.evals.outputs.outcome == 'scored'
         env:
           # Only this step can write issues; setup-uv, dependency installs, and the eval never see it.
           GH_TOKEN: ${{ github.token }}
         run: |
           status=$(cat runs/nightly/status)
+          drift=$(cat runs/nightly/drift)
           label=eval-regression
-          title="Nightly eval regression: CRITICAL"
+          if [ "$drift" = drifting ] && [ "$status" != CRITICAL ]; then
+            title="Nightly eval regression: slow drift below baseline"
+          else
+            title="Nightly eval regression: $status"
+          fi
           if [ "$MODE" != real ]; then
             # Separate label, so a demo run can never close a real regression issue.
             label=eval-regression-demo
@@ -75,21 +135,58 @@ jobs:
           fi
           open=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
           body=$(printf '%s\n\nRun and report: %s\n' "$(cat runs/nightly/summary.md)" "$REPORT_URL")
-          case "$status" in
-            CRITICAL)
-              if [ -n "$open" ]; then
-                gh issue comment "$open" --body "$body"
-              else
-                gh label create "$label" --color B60205 --force \
-                  --description "Nightly golden eval went CRITICAL"
-                gh issue create --title "$title" --label "$label" --body "$body"
-              fi
-              exit 1 ;;
-            PASS)
-              if [ -n "$open" ]; then
-                gh issue close "$open" --comment "$(printf 'Recovered: nightly eval is PASS again.\n\n%s' "$body")"
-              fi ;;
-            *)
-              # WARN is not a recovery; PROVIDER_UNSTABLE says nothing about the model.
-              echo "status $status: leaving issues as they are" ;;
-          esac
+          if [ "$status" = CRITICAL ] || [ "$drift" = drifting ]; then
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "$body"
+            else
+              gh label create "$label" --color B60205 --force \
+                --description "Nightly golden eval went CRITICAL or is drifting"
+              gh issue create --title "$title" --label "$label" --body "$body"
+            fi
+            exit 1
+          elif [ "$status" = PASS ]; then
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "$(printf 'Recovered: nightly eval is PASS and steady again.\n\n%s' "$body")"
+            fi
+          else
+            # WARN is not a recovery; PROVIDER_UNSTABLE says nothing about the model.
+            echo "status $status: leaving issues as they are"
+          fi
+
+  # Separate job so the write token never reaches setup-uv (which takes github.token as an
+  # input), dependency installs, or the eval. No third-party actions run here.
+  publish:
+    needs: golden
+    if: always() && needs.golden.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: site
+      - name: Push history and dashboard to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if ! git clone --quiet --depth 1 --branch gh-pages "$remote" pages 2>/dev/null; then
+            git init --quiet -b gh-pages pages
+          fi
+          # Append-only: the new history must extend the published one, never replace it.
+          if [ -f pages/history.jsonl ]; then
+            size=$(wc -c < pages/history.jsonl)
+            head -c "$size" site/history.jsonl | cmp -s - pages/history.jsonl || {
+              echo "::error::new history does not extend the published one; refusing to push"
+              exit 1
+            }
+          fi
+          cp site/history.jsonl site/index.html pages/
+          touch pages/.nojekyll
+          cd pages
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "nightly history: ${GITHUB_RUN_ID}"
+          git push --quiet "$remote" HEAD:gh-pages

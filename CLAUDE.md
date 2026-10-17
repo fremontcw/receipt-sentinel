@@ -37,7 +37,10 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    (skips without `ANTHROPIC_API_KEY`) and keeps one `eval-regression` issue in sync (open → comment →
    close on PASS). Manual `mode: fake-regression|fake-clean` tests it keyless under a separate
    `eval-regression-demo` label. Drift is not checked nightly yet: CI has no run history (solve with #3).
-3. Publish run history as a GitHub Pages dashboard (reuse `report.py`).
+3. ~~Pages dashboard~~ done: nightly real runs on `main` append a numbers-only line to `history.jsonl`
+   on the `gh-pages` branch (separate `publish` job holds `contents: write`), drift is computed from
+   it (restarts on a new baseline), and `evals dashboard` renders `index.html`. `--public` keeps
+   receipt-level reports out of CI artifacts once real receipts exist.
 4. Small REST endpoint for the categorize feature.
 5. ~~Stored-status bug~~ fixed: `save_run` gets the diff verdict (MCP server could expose status now).
 6. When the author has Azure: deploy Claude in Foundry, set `ANTHROPIC_FOUNDRY_API_KEY`/`_RESOURCE`/`_MODEL`,

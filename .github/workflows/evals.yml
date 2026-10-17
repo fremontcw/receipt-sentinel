@@ -26,12 +26,14 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: uv run sentinel evals run --no-save --out runs/ci --report-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: uv run sentinel evals run --public --no-save --out runs/ci --report-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         continue-on-error: true
       - uses: actions/upload-artifact@v4
         with:
           name: eval-report
           path: runs/ci/report.html
+          # --public skips the receipt-level report once the golden set has real receipts.
+          if-no-files-found: ignore
       - name: Comment summary on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
