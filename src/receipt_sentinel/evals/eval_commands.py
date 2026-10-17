@@ -173,7 +173,9 @@ def build_client(
     return TracingLlmClient(AnthropicLlmClient(api_key), "anthropic"), model_id or DEFAULT_MODEL_ID
 
 
-def _write_summary(path: Path, run: EvalRun, diff: DiffResult | None) -> None:
+def _write_summary(
+    path: Path, run: EvalRun, diff: DiffResult | None, *, drift_window_runs: int
+) -> None:
     status = diff.status.value if diff else run.status.value
     lines = [
         f"## Receipt Sentinel evals: **{status}**",
@@ -193,10 +195,20 @@ def _write_summary(path: Path, run: EvalRun, diff: DiffResult | None) -> None:
             f"- drift {diff.drift.window_runs}-night avg {diff.drift.moving_average_pass_rate:.1%} "
             f"({'DRIFTING' if diff.drift.drifting else 'steady'})"
         )
+    elif diff:
+        lines.append(
+            f"- drift: not judged yet (needs {drift_window_runs} comparable nights against "
+            "this baseline, model, and prompt)"
+        )
     path.write_text("\n".join(lines) + "\n")
-    # Machine-readable verdict for CI (the nightly workflow opens/closes issues on these).
-    (path.parent / "status").write_text(status + "\n")
-    (path.parent / "drift").write_text("drifting\n" if _is_drifting(diff) else "steady\n")
+
+
+def _write_verdict(out_dir: Path, run: EvalRun, diff: DiffResult | None) -> None:
+    """Machine-readable verdict for CI. Written last: its presence means the run finished,
+    so a crash after scoring can never leave a PASS behind for the nightly to act on."""
+    status = diff.status.value if diff else run.status.value
+    (out_dir / "status").write_text(status + "\n")
+    (out_dir / "drift").write_text("drifting\n" if _is_drifting(diff) else "steady\n")
 
 
 def _is_drifting(diff: DiffResult | None) -> bool:
@@ -229,7 +241,11 @@ def _diff_for(
     if history is not None:
         # Published nightly history: only nights judged against this baseline count.
         prior = comparable_pass_rates(
-            history, dataset_version=run.dataset_version, baseline_run_id=baseline.run_id
+            history,
+            dataset_version=run.dataset_version,
+            baseline_run_id=baseline.run_id,
+            model_id=run.model_id,
+            prompt_label=run.prompt_label,
         )
         drift = drift_from_pass_rates([run.pass_rate, *prior], baseline.pass_rate, thresholds)
     else:
@@ -301,14 +317,25 @@ def command_evals_run(
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
     if run.status is RunStatus.PROVIDER_UNSTABLE:
         print(f"{run.run_id}: PROVIDER_UNSTABLE (error rate {run.error_rate:.0%}) — not stored")
-        _write_summary(paths.report_path.parent / "summary.md", run, None)
+        _write_summary(
+            paths.report_path.parent / "summary.md",
+            run,
+            None,
+            drift_window_runs=thresholds.drift_window_runs,
+        )
         if history_path:
             reason = f"provider unstable (error rate {run.error_rate:.0%})"
             append_history(history_path, unscored_night(reason, run_url=report_url))
+        _write_verdict(paths.report_path.parent, run, None)
         return 0
     diff = _diff_for(run, paths, cases, thresholds, history)
     _write_report(run, diff, cases, paths, public=public)
-    _write_summary(paths.report_path.parent / "summary.md", run, diff)
+    _write_summary(
+        paths.report_path.parent / "summary.md",
+        run,
+        diff,
+        drift_window_runs=thresholds.drift_window_runs,
+    )
     # Store before alerting: a Slack outage must never cost us the run. The stored status
     # is the diff verdict, not run_evals' PASS placeholder.
     if save:
@@ -326,6 +353,7 @@ def command_evals_run(
         + (" DRIFTING" if _is_drifting(diff) else "")
         + f" → {paths.report_path.parent}"
     )
+    _write_verdict(paths.report_path.parent, run, diff)
     return 1 if diff.status is RunStatus.CRITICAL or _is_drifting(diff) else 0
 
 

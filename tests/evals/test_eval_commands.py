@@ -8,6 +8,7 @@ from receipt_sentinel.categorize.llm_client import (
     LlmResponse,
     LlmTransientError,
 )
+from receipt_sentinel.evals import eval_commands
 from receipt_sentinel.evals.eval_commands import (
     EvalPaths,
     command_compare_models,
@@ -174,7 +175,9 @@ def _prefill(history: Path, baseline_id: str, pass_rate: float) -> None:
         append_history(history, ScoredNight(
             kind="scored", schema_version=HISTORY_SCHEMA_VERSION,
             created_at="2026-10-01T06:00:00Z", run_url=None, model_id="fake",
-            prompt_label="p@1", dataset_version="1", baseline_run_id=baseline_id,
+            # Must match a real fake run, or the model/prompt filter (rightly) drops it.
+            prompt_label="receipt_categorizer@1", dataset_version="1",
+            baseline_run_id=baseline_id,
             case_count=56, pass_rate=pass_rate, delta_points=0.0, regressions=0,
             adversarial_failures=0, cost_usd=0.0, p50_latency_ms=1, status="PASS",
             drifting=False, drift_gap_points=None,
@@ -237,3 +240,27 @@ def test_record_skip_appends_reason(tmp_path: Path) -> None:
     assert command_record_skip(history, reason="no API key", run_url=None) == 0
     [record] = load_history(history)
     assert isinstance(record, UnscoredNight) and record.reason == "no API key"
+
+
+def test_unjudged_drift_is_said_in_the_summary(tmp_path: Path) -> None:
+    p = paths_in(tmp_path)
+    _bless_clean_baseline(p)
+    command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
+                      history_path=tmp_path / "h.jsonl")
+    assert "drift: not judged yet" in _out(p, "summary.md")
+
+
+def test_crash_after_scoring_leaves_no_verdict_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CI reads `status` as "the run finished". A crash after scoring (here: an unexpected
+    Slack error) must not leave a PASS verdict behind, or the nightly goes green."""
+
+    def broken_slack(*args: object, **kwargs: object) -> None:
+        raise ValueError("malformed webhook")
+
+    monkeypatch.setattr(eval_commands, "post_slack_alert", broken_slack)
+    p = paths_in(tmp_path)
+    with pytest.raises(ValueError):
+        command_evals_run(p, fake=True, save=False, slack_webhook="x", report_url=None)
+    assert not (p.report_path.parent / "status").exists()

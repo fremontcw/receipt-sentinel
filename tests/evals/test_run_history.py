@@ -78,4 +78,17 @@ def test_comparable_pass_rates_filters_baseline_and_dataset() -> None:
         unscored_night("provider unstable", run_url=None),
         night(0.6, baseline="b2"),
     ]
-    assert comparable_pass_rates(history, dataset_version="1", baseline_run_id="b2") == [0.6, 0.8]
+    assert comparable_pass_rates(
+        history, dataset_version="1", baseline_run_id="b2", model_id="m", prompt_label="p@1"
+    ) == [0.6, 0.8]
+
+
+def test_comparable_pass_rates_excludes_other_models_and_prompts() -> None:
+    history: list[HistoryRecord] = [
+        night(0.9),
+        replace(night(0.5), model_id="other-model"),
+        replace(night(0.4), prompt_label="p@2"),
+    ]
+    assert comparable_pass_rates(
+        history, dataset_version="1", baseline_run_id="b1", model_id="m", prompt_label="p@1"
+    ) == [0.9]

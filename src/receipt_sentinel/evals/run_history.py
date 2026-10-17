@@ -141,12 +141,17 @@ def append_history(path: Path, record: HistoryRecord) -> None:
 
 
 def comparable_pass_rates(
-    history: list[HistoryRecord], *, dataset_version: str, baseline_run_id: str
+    history: list[HistoryRecord],
+    *,
+    dataset_version: str,
+    baseline_run_id: str,
+    model_id: str,
+    prompt_label: str,
 ) -> list[float]:
-    """Pass rates of scored nights judged against this baseline on this dataset, newest first.
+    """Pass rates of scored nights comparable to this one, newest first.
 
-    A promoted baseline or a new dataset version restarts the drift window, so the nights
-    before it can never raise a false drift alarm.
+    A promoted baseline, a new dataset version, a different model, or a different prompt
+    restarts the drift window, so nights before the change never raise a false alarm.
     """
     return [
         r.pass_rate
@@ -154,4 +159,6 @@ def comparable_pass_rates(
         if isinstance(r, ScoredNight)
         and r.dataset_version == dataset_version
         and r.baseline_run_id == baseline_run_id
+        and r.model_id == model_id
+        and r.prompt_label == prompt_label
     ]

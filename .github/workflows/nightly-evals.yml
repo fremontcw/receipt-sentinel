@@ -45,8 +45,13 @@ jobs:
           git ls-remote --exit-code --heads origin gh-pages >/dev/null || code=$?
           if [ "$code" -eq 0 ]; then
             git fetch --no-tags --depth=1 origin gh-pages
-            git show FETCH_HEAD:history.jsonl > site/history.jsonl 2>/dev/null || true
-          elif [ "$code" -ne 2 ]; then
+            if ! git show FETCH_HEAD:history.jsonl > site/history.jsonl 2>/dev/null; then
+              rm -f site/history.jsonl
+              echo "::warning::gh-pages exists but has no history.jsonl; starting an empty history"
+            fi
+          elif [ "$code" -eq 2 ]; then
+            echo "::notice::no gh-pages branch yet; starting an empty history (first publish)"
+          else
             echo "::error::could not read the gh-pages branch (exit $code)"
             exit 1
           fi
@@ -78,12 +83,13 @@ jobs:
               args=() ;;
           esac
           # Never exit non-zero here: history must be published before the run goes red.
-          # Exit 1 = CRITICAL or drifting (status file written); exit >= 2 = the provider
-          # rejected the request; exit 1 with no status file = a crash.
+          # The status file is written last, so it means "the run finished": exit 1 with it =
+          # CRITICAL or drifting; exit 2 = the provider rejected the request; anything else
+          # without it (traceback, OOM kill) = a crash.
           code=0
           uv run sentinel evals run "${args[@]}" "${history_args[@]}" --public --no-save \
             --out runs/nightly --report-url "$REPORT_URL" || code=$?
-          if [ "$code" -ge 2 ]; then
+          if [ "$code" -eq 2 ]; then
             skip "provider rejected the request (exit $code)"
             echo "outcome=rejected" >> "$GITHUB_OUTPUT"
           elif [ ! -f runs/nightly/status ]; then

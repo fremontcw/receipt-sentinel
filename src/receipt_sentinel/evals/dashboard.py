@@ -108,6 +108,11 @@ def _trend_svg(scored: list[ScoredNight]) -> str:
         )
     points = " ".join(f"{x:.1f},{y(n.pass_rate):.1f}" for x, n in zip(xs, scored, strict=True))
     parts.append(f'<polyline fill="none" stroke="#27a" stroke-width="2" points="{points}"/>')
+    # Dots too: a single night is a one-point polyline, which draws nothing.
+    parts.extend(
+        f'<circle cx="{x:.1f}" cy="{y(n.pass_rate):.1f}" r="3" fill="#27a"/>'
+        for x, n in zip(xs, scored, strict=True)
+    )
     return (
         f'<svg viewBox="0 0 {width} {height}" width="{width}" role="img" '
         f'aria-label="pass rate trend, last {len(scored)} scored nights">{"".join(parts)}</svg>'

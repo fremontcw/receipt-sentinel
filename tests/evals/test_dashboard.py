@@ -48,3 +48,9 @@ def test_no_script_and_baseline_change_marked() -> None:
     page = render_dashboard_html(history, repo_url=REPO)
     assert "<script" not in page
     assert page.count('class="baseline-change"') == 1
+
+
+def test_single_night_trend_is_visible() -> None:
+    # A one-point polyline draws nothing: day one of the public page must still show a mark.
+    page = render_dashboard_html([night(0.98)], repo_url=REPO)
+    assert "<circle" in page
