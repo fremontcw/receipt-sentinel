@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from receipt_sentinel.categorize.llm_client import (
     LlmRequest,
     LlmResponse,
@@ -7,6 +9,7 @@ from receipt_sentinel.categorize.llm_client import (
 )
 from receipt_sentinel.evals.eval_commands import (
     EvalPaths,
+    command_compare_models,
     command_evals_run,
     command_promote_baseline,
     command_promote_case,
@@ -92,3 +95,30 @@ def test_promote_baseline_rejects_dataset_version_mismatch(tmp_path: Path) -> No
 
 def test_promote_baseline_rejects_unknown_run_id(tmp_path: Path) -> None:
     assert command_promote_baseline(paths_in(tmp_path), "20260828T000000Z-abcdef") == 1
+
+
+def test_compare_models_identical_models_pass_and_store_nothing(tmp_path: Path) -> None:
+    p = paths_in(tmp_path)
+    assert command_compare_models(p, fake=True) == 0
+    summary = (p.report_path.parent / "summary.md").read_text()
+    assert "model comparison: **PASS**" in summary
+    assert p.report_path.exists()
+    # A comparison is not a run of record: it must not feed history, drift, or the baseline.
+    assert not p.db_path.exists()
+    assert not p.baseline_path.exists()
+
+
+def test_compare_models_worse_candidate_is_critical_with_cost_and_latency(
+    tmp_path: Path,
+) -> None:
+    p = paths_in(tmp_path)
+    assert command_compare_models(p, fake=True, demo_noise=True) == 1
+    summary = (p.report_path.parent / "summary.md").read_text()
+    assert "CRITICAL" in summary
+    assert "cost $" in summary and "p50" in summary
+    assert "Incumbent" in p.report_path.read_text()
+
+
+def test_compare_models_unpriced_candidate_fails_before_any_model_call(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="no pricing for model 'claude-unpriced'"):
+        command_compare_models(paths_in(tmp_path), candidate_model="claude-unpriced")

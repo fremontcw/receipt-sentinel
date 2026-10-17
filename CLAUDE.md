@@ -13,7 +13,7 @@ Public repo: https://github.com/fremontcw/project_01_model_regression_detection
 Goal of the current work: make this repo show a full "AI-native automation engineer" skill set
 (evals, GitHub automation, telemetry, MCP, C#/.NET, Azure AI, human-in-the-loop, dashboards).
 
-**Done and pushed (CI green, 79 tests):**
+**Done (CI green at push; 83 tests locally):**
 
 - Eval harness (Aug): golden set, scoring, baseline diff, HTML report, Slack, GitHub Actions gate.
 - OpenTelemetry (`src/receipt_sentinel/telemetry.py`): `eval_run` → `eval_case` → `chat <model>` spans,
@@ -22,14 +22,17 @@ Goal of the current work: make this repo show a full "AI-native automation engin
 - C# MCP server (`mcp_run_history_server/`, official ModelContextProtocol 2.2.0 SDK, stdio): `list_runs`,
   `what_regressed`. Run ids regex-checked before path use. E2E test `tests/test_mcp_run_history_server.py`
   (skips unless built; CI builds with `-warnaserror`).
+- `sentinel evals compare-models` (model migration gate, uncommitted 2026-10-17): runs incumbent and
+  candidate on the golden set, diffs candidate vs incumbent with the normal thresholds. Strict gate:
+  cost/p50 are shown, never gate. Nothing is stored. `make compare-demo` runs keyless. A real model
+  needs a `config/model_pricing.yaml` entry (look prices up via the `claude-api` skill).
 - Azure provider (`categorize/azure_foundry_llm_client.py`): `--provider azure` = same Claude model via
   Microsoft Foundry (`AsyncAnthropicFoundry` handed to `AnthropicLlmClient`). Offline-tested with a mocked
   endpoint only; never run against a real deployment.
 
 **Next, in suggested order:**
 
-1. `compare-models` command: run two models/providers on the golden set, side-by-side diff (the "model
-   migration gate"). Reuse `run_evals` + `diff_against_baseline`.
+1. ~~`compare-models`~~ done (see above).
 2. Open a GitHub issue automatically on a CRITICAL regression (GitHub API from `evals.yml`).
 3. Publish run history as a GitHub Pages dashboard (reuse `report.py`).
 4. Small REST endpoint for the categorize feature.

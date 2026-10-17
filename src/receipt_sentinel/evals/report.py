@@ -95,10 +95,16 @@ def _trend_svg(history: list[EvalRun], baseline_pass_rate: float) -> str:
     )
 
 
-def _header_table(current: EvalRun, diff: DiffResult) -> str:
+def _header_table(current: EvalRun, diff: DiffResult, incumbent: EvalRun | None) -> str:
+    baseline_row = (
+        f"<tr><th>Incumbent</th><td>{escape(incumbent.model_id)} "
+        f"({escape(incumbent.run_id)})</td></tr>"
+        if incumbent
+        else f"<tr><th>Baseline</th><td>{escape(diff.baseline_run_id)}</td></tr>"
+    )
     return f"""<table>
 <tr><th>Run</th><td>{escape(current.run_id)}</td></tr>
-<tr><th>Baseline</th><td>{escape(diff.baseline_run_id)}</td></tr>
+{baseline_row}
 <tr><th>Prompt</th><td>{escape(current.prompt_label)}</td></tr>
 <tr><th>Model</th><td>{escape(current.model_id)}</td></tr>
 <tr><th>Dataset version</th><td>{escape(current.dataset_version)}</td></tr>
@@ -106,8 +112,13 @@ def _header_table(current: EvalRun, diff: DiffResult) -> str:
 </table>"""
 
 
-def _scorecard_table(current: EvalRun, diff: DiffResult, baseline_rate: float) -> str:
+def _scorecard_table(
+    current: EvalRun, diff: DiffResult, baseline_rate: float, incumbent: EvalRun | None
+) -> str:
     per_receipt = current.total_cost_usd / len(current.scores) if current.scores else 0.0
+    # In a model comparison, show where cost and latency come from, not just where they land.
+    latency_from = f"{incumbent.p50_latency_ms} ms &rarr; " if incumbent else ""
+    cost_from = f"${incumbent.total_cost_usd:.4f} &rarr; " if incumbent else ""
     drift_row = (
         f"<tr><th>Drift ({diff.drift.window_runs}-run avg)</th>"
         f"<td>{diff.drift.moving_average_pass_rate:.1%} vs baseline "
@@ -122,14 +133,20 @@ def _scorecard_table(current: EvalRun, diff: DiffResult, baseline_rate: float) -
 <tr><th>Regressions / improvements</th>
 <td>{len(diff.regressions)} / {len(diff.improvements)}</td></tr>
 <tr><th>Adversarial failures</th><td>{diff.adversarial_failures}</td></tr>
-<tr><th>p50 latency</th><td>{current.p50_latency_ms} ms</td></tr>
-<tr><th>Cost</th><td>${current.total_cost_usd:.4f} total, ${per_receipt:.4f} per receipt</td></tr>
+<tr><th>p50 latency</th><td>{latency_from}{current.p50_latency_ms} ms</td></tr>
+<tr><th>Cost</th><td>{cost_from}${current.total_cost_usd:.4f} total, """ \
+        f"""${per_receipt:.4f} per receipt</td></tr>
 {drift_row}
 </table>"""
 
 
 def render_report_html(
-    current: EvalRun, diff: DiffResult, cases: list[GoldenCase], history: list[EvalRun]
+    current: EvalRun,
+    diff: DiffResult,
+    cases: list[GoldenCase],
+    history: list[EvalRun],
+    *,
+    incumbent: EvalRun | None = None,
 ) -> str:
     """Render a self-contained HTML regression report for one run vs its baseline.
 
@@ -141,6 +158,8 @@ def render_report_html(
         diff: The diff of `current` against its baseline.
         cases: Golden cases referenced by the run, used to render expected values/notes.
         history: Runs (any order) used to draw the pass-rate trend line.
+        incumbent: In a model comparison, the incumbent model's run that `diff` used as
+            its baseline; adds incumbent cost and latency to the scorecard.
 
     Returns:
         A complete `<!doctype html>` document as a string.
@@ -152,9 +171,9 @@ def render_report_html(
 <title>Receipt Sentinel eval report {escape(current.run_id)}</title><style>{STYLE}</style></head>
 <body>
 <h1>Eval report <span class="badge {status}">{status}</span></h1>
-{_header_table(current, diff)}
+{_header_table(current, diff, incumbent)}
 <h2>Scorecard</h2>
-{_scorecard_table(current, diff, baseline_rate)}
+{_scorecard_table(current, diff, baseline_rate, incumbent)}
 {_group_table("By difficulty", diff.by_difficulty)}
 {_group_table("By category", diff.by_category)}
 <h2>Trend</h2>{_trend_svg(history, baseline_rate)}

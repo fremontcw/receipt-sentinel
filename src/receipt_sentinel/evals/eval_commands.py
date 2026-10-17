@@ -1,7 +1,8 @@
 """eval_commands
 
 The explicit user actions behind `sentinel evals …`: run + diff + report + alert,
-promote a run to baseline, promote a failed receipt into the golden set.
+compare two models on the golden set, promote a run to baseline, promote a failed
+receipt into the golden set.
 
 Status:
     None
@@ -126,12 +127,18 @@ def _label_oracle(cases: list[GoldenCase], *, noisy: bool) -> FakeLlmClient:
 
 
 def build_client(
-    *, fake: bool, demo_noise: bool, cases: list[GoldenCase], provider: str = "anthropic"
+    *,
+    fake: bool,
+    demo_noise: bool,
+    cases: list[GoldenCase],
+    provider: str = "anthropic",
+    model_id: str | None = None,
 ) -> tuple[LlmClient, str]:
     """Pick the client for a run: the label oracle under --fake, else the real model.
 
     `provider` is "anthropic" (Anthropic API) or "azure" (the same model via Microsoft
-    Foundry); it is ignored under --fake.
+    Foundry). `model_id` overrides the provider's default model. Both are ignored under
+    --fake.
     """
     if fake:
         return TracingLlmClient(_label_oracle(cases, noisy=demo_noise), "fake"), "fake"
@@ -142,12 +149,15 @@ def build_client(
             os.environ.get(RESOURCE_ENV_VAR) or os.environ.get(BASE_URL_ENV_VAR)
         ):
             raise SystemExit(f"set {API_KEY_ENV_VAR} and {RESOURCE_ENV_VAR} for --provider azure")
-        model_id = os.environ.get(MODEL_ENV_VAR, DEFAULT_MODEL_ID)
-        return TracingLlmClient(build_azure_foundry_llm_client(), FOUNDRY_PROVIDER_NAME), model_id
+        foundry_model = model_id or os.environ.get(MODEL_ENV_VAR, DEFAULT_MODEL_ID)
+        return (
+            TracingLlmClient(build_azure_foundry_llm_client(), FOUNDRY_PROVIDER_NAME),
+            foundry_model,
+        )
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise SystemExit("ANTHROPIC_API_KEY is not set")
-    return TracingLlmClient(AnthropicLlmClient(api_key), "anthropic"), DEFAULT_MODEL_ID
+    return TracingLlmClient(AnthropicLlmClient(api_key), "anthropic"), model_id or DEFAULT_MODEL_ID
 
 
 def _write_summary(path: Path, run: EvalRun, diff: DiffResult | None) -> None:
@@ -262,6 +272,133 @@ def command_evals_run(
         print(f"slack alert failed ({type(err).__name__}); run was still saved and reported")
     print(
         f"{run.run_id}: {diff.status.value} pass {run.pass_rate:.1%} "
+        f"({diff.pass_rate_delta_points:+.1f} pts) → {paths.report_path}"
+    )
+    return 1 if diff.status is RunStatus.CRITICAL else 0
+
+
+def _pct_change(old: float, new: float) -> str:
+    return f"{(new - old) / old:+.0%}" if old else "n/a"
+
+
+def _write_comparison_summary(
+    path: Path, incumbent: EvalRun, candidate: EvalRun, diff: DiffResult
+) -> None:
+    lines = [
+        f"## Receipt Sentinel model comparison: **{diff.status.value}**",
+        "",
+        f"- incumbent `{incumbent.model_id}` → candidate `{candidate.model_id}` · "
+        f"prompt `{candidate.prompt_label}` · dataset v{candidate.dataset_version}",
+        f"- pass rate {incumbent.pass_rate:.1%} → {candidate.pass_rate:.1%} "
+        f"({diff.pass_rate_delta_points:+.1f} pts)",
+        f"- regressions {len(diff.regressions)} · improvements {len(diff.improvements)} · "
+        f"adversarial failures {diff.adversarial_failures}",
+        # Shown, never gated on: a cheaper-but-worse model still fails the quality gate.
+        f"- cost ${incumbent.total_cost_usd:.3f} → ${candidate.total_cost_usd:.3f} "
+        f"({_pct_change(incumbent.total_cost_usd, candidate.total_cost_usd)}) · "
+        f"p50 {incumbent.p50_latency_ms} → {candidate.p50_latency_ms} ms",
+    ]
+    path.write_text("\n".join(lines) + "\n")
+
+
+def _run_one_model(
+    paths: EvalPaths,
+    cases: list[GoldenCase],
+    thresholds: Thresholds,
+    client: LlmClient,
+    model_id: str,
+) -> EvalRun:
+    return asyncio.run(
+        run_evals(
+            cases,
+            load_active_prompt(paths.active_prompt_path),
+            client,
+            model_id=model_id,
+            pricing=load_model_pricing(model_id, paths.pricing_path),
+            thresholds=thresholds,
+            dataset_version=load_dataset_version(paths.golden_dir),
+            git_sha=_git_sha(),
+        )
+    )
+
+
+def command_compare_models(
+    paths: EvalPaths,
+    *,
+    incumbent_model: str = DEFAULT_MODEL_ID,
+    candidate_model: str = DEFAULT_MODEL_ID,
+    incumbent_provider: str = "anthropic",
+    candidate_provider: str = "anthropic",
+    fake: bool = False,
+    demo_noise: bool = False,
+) -> int:
+    """Model migration gate: run two models on the golden set and diff candidate vs incumbent.
+
+    The incumbent's fresh run stands in for the baseline, so the verdict uses the same
+    thresholds as `evals run`. Cost and latency are reported but never gate. Neither run
+    is stored — a comparison must not feed run history, drift, or the baseline.
+
+    Args:
+        paths: Resolved locations; the report and summary.md go next to `report_path`.
+        incumbent_model: Model in use today (a model_pricing.yaml key).
+        candidate_model: Model proposed to replace it (a model_pricing.yaml key).
+        incumbent_provider: "anthropic" or "azure" for the incumbent.
+        candidate_provider: "anthropic" or "azure" for the candidate.
+        fake: Compare label oracles instead of real models (no API key needed).
+        demo_noise: With `fake`, make the candidate mis-categorise ~6% of cases.
+
+    Returns:
+        Process exit code: 1 on a CRITICAL diff, else 0.
+    """
+    cases = load_golden_cases(paths.golden_dir)
+    thresholds = load_thresholds(paths.thresholds_path)
+    if not fake:
+        # Fail on a missing price before the incumbent run spends any money.
+        for model_id in (incumbent_model, candidate_model):
+            try:
+                load_model_pricing(model_id, paths.pricing_path)
+            except KeyError as err:
+                raise SystemExit(f"{err.args[0]}; add it before comparing") from err
+    incumbent_client, incumbent_id = build_client(
+        fake=fake,
+        demo_noise=False,
+        cases=cases,
+        provider=incumbent_provider,
+        model_id=incumbent_model,
+    )
+    candidate_client, candidate_id = build_client(
+        fake=fake,
+        demo_noise=demo_noise,
+        cases=cases,
+        provider=candidate_provider,
+        model_id=candidate_model,
+    )
+    incumbent = _run_one_model(paths, cases, thresholds, incumbent_client, incumbent_id)
+    candidate = _run_one_model(paths, cases, thresholds, candidate_client, candidate_id)
+    paths.report_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path = paths.report_path.parent / "summary.md"
+    unstable = [r for r in (incumbent, candidate) if r.status is RunStatus.PROVIDER_UNSTABLE]
+    if unstable:
+        # Same rule as `evals run`: a flaky provider says nothing about the model.
+        message = ", ".join(f"{r.model_id} error rate {r.error_rate:.0%}" for r in unstable)
+        summary_path.write_text(
+            f"## Receipt Sentinel model comparison: **PROVIDER_UNSTABLE**\n\n- {message}\n"
+        )
+        print(f"PROVIDER_UNSTABLE ({message}) — no verdict")
+        return 0
+    diff = diff_against_baseline(
+        candidate,
+        incumbent,
+        thresholds=thresholds,
+        case_categories={c.id: c.expected.category.value for c in cases},
+    )
+    paths.report_path.write_text(
+        render_report_html(candidate, diff, cases, [incumbent, candidate], incumbent=incumbent)
+    )
+    _write_comparison_summary(summary_path, incumbent, candidate, diff)
+    print(
+        f"{diff.status.value}: {incumbent.model_id} {incumbent.pass_rate:.1%} → "
+        f"{candidate.model_id} {candidate.pass_rate:.1%} "
         f"({diff.pass_rate_delta_points:+.1f} pts) → {paths.report_path}"
     )
     return 1 if diff.status is RunStatus.CRITICAL else 0

@@ -1,6 +1,7 @@
 """cli
 
-Command-line entry for Receipt Sentinel: `sentinel evals run|promote-baseline|promote`.
+Command-line entry for Receipt Sentinel:
+`sentinel evals run|compare-models|promote-baseline|promote`.
 
 Status:
     None
@@ -14,8 +15,10 @@ import argparse
 import os
 from pathlib import Path
 
+from receipt_sentinel.categorize.anthropic_llm_client import DEFAULT_MODEL_ID
 from receipt_sentinel.evals.eval_commands import (
     EvalPaths,
+    command_compare_models,
     command_evals_run,
     command_promote_baseline,
     command_promote_case,
@@ -47,6 +50,23 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--out", type=Path, default=Path("runs"))
     run.add_argument("--report-url", default=None)
 
+    compare = evals.add_parser(
+        "compare-models", help="model migration gate: diff a candidate model vs the incumbent"
+    )
+    compare.add_argument("--incumbent", default=DEFAULT_MODEL_ID, help="model in use today")
+    compare.add_argument("--candidate", default=DEFAULT_MODEL_ID, help="proposed replacement")
+    for role in ("incumbent", "candidate"):
+        compare.add_argument(
+            f"--{role}-provider", choices=("anthropic", "azure"), default="anthropic"
+        )
+    compare.add_argument("--fake", action="store_true", help="compare label oracles (no API key)")
+    compare.add_argument(
+        "--demo-noise",
+        action="store_true",
+        help="with --fake: the candidate mis-categorises ~6%% of cases",
+    )
+    compare.add_argument("--out", type=Path, default=Path("runs/compare"))
+
     promote = evals.add_parser("promote-baseline", help="bless a stored run as the baseline")
     promote.add_argument("run_id")
     promote.add_argument("--fake", action="store_true", help="bless into the fake baseline")
@@ -64,9 +84,19 @@ def main(argv: list[str] | None = None) -> int:
         default = EvalPaths.default(Path("runs"))
         return command_promote_case(default, args.receipt_text, args.case_id)
     paths = EvalPaths.default(args.out, fake=args.fake)
-    if args.command == "run":
+    if args.command in ("run", "compare-models"):
         shutdown_tracing = configure_tracing()
         try:
+            if args.command == "compare-models":
+                return command_compare_models(
+                    paths,
+                    incumbent_model=args.incumbent,
+                    candidate_model=args.candidate,
+                    incumbent_provider=args.incumbent_provider,
+                    candidate_provider=args.candidate_provider,
+                    fake=args.fake,
+                    demo_noise=args.demo_noise,
+                )
             return command_evals_run(
                 paths,
                 fake=args.fake,
