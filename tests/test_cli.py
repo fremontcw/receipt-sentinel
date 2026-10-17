@@ -34,3 +34,10 @@ def test_cli_rejected_request_exits_two_with_readable_message(
     err = capsys.readouterr().err
     assert "HTTP 400" in err and "not scoped to a workspace" in err
     assert "Traceback" not in err
+
+
+def test_cli_record_skip(tmp_path: Path) -> None:
+    history = tmp_path / "h.jsonl"
+    argv = ["evals", "record-skip", "--history", str(history), "--reason", "rejected key"]
+    assert main(argv) == 0
+    assert "rejected key" in history.read_text()

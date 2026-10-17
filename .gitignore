@@ -25,3 +25,4 @@ mcp_run_history_server/obj/
 
 # brainstorming visual companion mockups
 .superpowers/
+.playwright-mcp/

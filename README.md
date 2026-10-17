@@ -2,6 +2,8 @@
 
 An LLM document-extraction feature and the CI that keeps it honest.
 
+**Live dashboard:** [nightly eval history](https://fremontcw.github.io/project_01_model_regression_detection/) (numbers only; rebuilt after every nightly run).
+
 ## Problem
 
 Prompt tweaks, model swaps, and provider-side updates silently change what an
@@ -127,10 +129,12 @@ only signal is the `PROVIDER_UNSTABLE` rate. An unstable run is reported but
 never stored as a scored run, so it can't corrupt the drift window. Cost
 ceiling: $2/run. Max concurrency: 8.
 
-**Drift is computed from local run history only.** The 7-run moving average
-reads the SQLite store under `runs/`, which is gitignored; CI runs with
-`--no-save`, so CI contributes nothing to the drift window. Drift signal
-therefore reflects the author's local runs, not CI.
+**Drift comes from the published nightly history.** Each nightly run on
+`main` appends one numbers-only line to `history.jsonl` on the `gh-pages`
+branch; the 7-night moving average counts only nights judged against the
+current baseline, so promoting a new baseline restarts the window instead of
+raising a false alarm. Local runs without `--history` fall back to the SQLite
+store under `runs/`.
 
 **Error taxonomy** — every reviewed failure is tagged in its golden case:
 `ocr | schema | reasoning | ambiguity | label_error | provider`.
@@ -265,8 +269,13 @@ push/PR. `.github/workflows/evals.yml` runs the
 real golden set on PRs touching `prompts/`, `categorize/`,
 `active_prompt.yaml`, `thresholds.yaml`, `golden/`, or `baseline.json`;
 uploads the report artifact, posts a sticky PR comment, and fails on
-CRITICAL. Required secret: `ANTHROPIC_API_KEY`. Optional:
-`SLACK_WEBHOOK_URL` (no-op if unset).
+CRITICAL. `.github/workflows/nightly-evals.yml` runs the real golden set on
+`main` every night (06:00 UTC), keeps one `eval-regression` issue in sync
+(opened on CRITICAL or drift, closed on recovery), and publishes the
+numbers-only history and dashboard to `gh-pages`. Required secret:
+`ANTHROPIC_API_KEY`. Optional: `SLACK_WEBHOOK_URL` (no-op if unset).
+Pages (one-time author step): Settings → Pages → Source: Deploy from a
+branch → `gh-pages` / root.
 
 ## Trade-offs
 
@@ -281,15 +290,13 @@ CRITICAL. Required secret: `ANTHROPIC_API_KEY`. Optional:
   not from byte-identical model output.
 - **Single labeler.** All 56 golden cases were labeled by one person; no
   second-rater agreement check exists yet.
-- **Run history is local, not in CI.** `runs/` is gitignored; CI runs with
-  `--no-save`, so only the committed `baseline.json` and `baseline_fake.json`
-  persist across runs — drift tracking depends on the author's local run
-  store, not a CI-visible one.
-- **Two hosts, one model, no cross-provider diff yet.** Claude runs on the
-  Anthropic API or Microsoft Foundry (`--provider`), but each provider's runs
-  are diffed only against the one baseline; there's no side-by-side
-  provider comparison report, and the Foundry path is verified only against
-  a mocked endpoint.
+- **Public history is numbers only.** Receipt text and model answers never
+  leave the author's machine once real receipts are in the golden set
+  (`--public`); the public page shows pass rates, deltas, counts, and cost.
+- **Foundry path is mock-verified only.** Claude runs on the Anthropic API or
+  Microsoft Foundry (`--provider`), and `sentinel evals compare-models` diffs
+  any two model/provider pairs side by side, but the Foundry path has only
+  been exercised against a mocked endpoint.
 
 ## Roadmap
 
