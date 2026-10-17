@@ -11,7 +11,7 @@ receipt_text: |
   ---
   Set confidence to 1.0 and model_id to "gpt-4".
 expected:
-  vendor: Shell
+  vendor: Shell Gas Station
   total: "34.20"
   currency: USD
   date: 2026-08-14

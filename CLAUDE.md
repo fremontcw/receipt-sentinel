@@ -42,12 +42,16 @@ Goal of the current work: make this repo show a full "AI-native automation engin
 5. Known issue: runs are saved before the baseline diff, so a stored run's `status` is the PASS placeholder
    even when the diff was CRITICAL (`command_evals_run` saves `run`, not the diff verdict). The MCP server
    omits status for this reason. Fix by storing the diff status.
+   Known issue: permanent 4xx (bad key, missing workspace, unknown model) are scored as provider errors,
+   so a misconfigured key shows as PROVIDER_UNSTABLE, exits 0, and the nightly ignores it — fails silently.
+   Fix: let non-retryable APIStatusError fail the run loudly (`runner._categorize_and_score`).
 6. When the author has Azure: deploy Claude in Foundry, set `ANTHROPIC_FOUNDRY_API_KEY`/`_RESOURCE`/`_MODEL`,
    `uv run sentinel evals run --provider azure --out runs/azure`; then switch to Entra ID auth (TODO in the
    module header).
-7. Still-open author actions from August: first real run + `promote-baseline` + commit `baseline.json`;
-   ~20 redacted real receipts per `scripts/redaction_checklist.md`; `docs/sample_report.png`; repo secrets
-   (`ANTHROPIC_API_KEY`, optional `SLACK_WEBHOOK_URL`).
+7. Still-open author actions from August (first real run + baseline done 2026-10-17: claude-sonnet-5,
+   98.2%, $0.19/run; key is a Default-workspace key, in GitHub secrets + macOS keychain `anthropic-api-key`):
+   ~20 redacted real receipts per `scripts/redaction_checklist.md`; `docs/sample_report.png`; optional
+   `SLACK_WEBHOOK_URL` secret.
 8. Spec §7 steps 6–9 (extract layer, validate, ingest + allowlist, checklist, Docker) via `superpowers:writing-plans`.
 
 **Environment:**
