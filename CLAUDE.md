@@ -33,7 +33,10 @@ Goal of the current work: make this repo show a full "AI-native automation engin
 **Next, in suggested order:**
 
 1. ~~`compare-models`~~ done (see above).
-2. Open a GitHub issue automatically on a CRITICAL regression (GitHub API from `evals.yml`).
+2. ~~Auto-issue on CRITICAL~~ done: `.github/workflows/nightly-evals.yml` runs evals on `main` nightly
+   (skips without `ANTHROPIC_API_KEY`) and keeps one `eval-regression` issue in sync (open → comment →
+   close on PASS). Manual `mode: fake-regression|fake-clean` tests it keyless under a separate
+   `eval-regression-demo` label. Drift is not checked nightly yet: CI has no run history (solve with #3).
 3. Publish run history as a GitHub Pages dashboard (reuse `report.py`).
 4. Small REST endpoint for the categorize feature.
 5. Known issue: runs are saved before the baseline diff, so a stored run's `status` is the PASS placeholder

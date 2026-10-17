@@ -69,6 +69,7 @@ def test_provider_unstable_run_exits_zero_saves_nothing_but_writes_summary(
     assert list_recent_runs(p.db_path, dataset_version="1", limit=5) == []
     assert (p.report_path.parent / "summary.md").exists()
     assert "PROVIDER_UNSTABLE" in (p.report_path.parent / "summary.md").read_text()
+    assert (p.report_path.parent / "status").read_text() == "PROVIDER_UNSTABLE\n"
 
 
 def test_regression_against_clean_baseline_is_critical_and_exits_one(tmp_path: Path) -> None:
@@ -80,6 +81,8 @@ def test_regression_against_clean_baseline_is_critical_and_exits_one(tmp_path: P
                              demo_noise=True)
     assert code == 1
     assert "CRITICAL" in (p.report_path.parent / "summary.md").read_text()
+    # The nightly workflow branches on this file, not on parsing summary.md.
+    assert (p.report_path.parent / "status").read_text() == "CRITICAL\n"
 
 
 def test_promote_baseline_rejects_dataset_version_mismatch(tmp_path: Path) -> None:

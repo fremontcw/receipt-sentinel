@@ -1,0 +1,87 @@
+name: nightly-evals
+# Catches regressions with no code change (provider-side model or infra changes): runs the
+# golden evals on main every night and keeps one GitHub issue in sync with the verdict.
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "real = the model; fake-* = keyless oracle, to test the issue automation"
+        type: choice
+        options: [real, fake-regression, fake-clean]
+        default: real
+permissions:
+  contents: read
+  issues: write
+# Queue rather than overlap, so two runs never both decide to open an issue.
+concurrency: nightly-evals
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    env:
+      MODE: ${{ inputs.mode || 'real' }}
+      GH_TOKEN: ${{ github.token }}
+      REPORT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.12
+      - run: uv sync
+      - name: Run golden evals
+        id: evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Demo runs must never page Slack.
+          SLACK_WEBHOOK_URL: ${{ (inputs.mode || 'real') == 'real' && secrets.SLACK_WEBHOOK_URL || '' }}
+        run: |
+          case "$MODE" in
+            fake-regression) args=(--fake --demo-noise) ;;
+            fake-clean) args=(--fake) ;;
+            *)
+              if [ -z "$ANTHROPIC_API_KEY" ]; then
+                echo "::notice::ANTHROPIC_API_KEY is not set; skipping the nightly eval"
+                echo "skipped=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              args=() ;;
+          esac
+          # Exit 1 means CRITICAL, which the next step handles; a crash leaves no status file
+          # and fails the next step instead.
+          uv run sentinel evals run "${args[@]}" --no-save --out runs/nightly --report-url "$REPORT_URL" || true
+      - uses: actions/upload-artifact@v4
+        if: steps.evals.outputs.skipped != 'true'
+        with:
+          name: nightly-eval-report
+          path: runs/nightly/report.html
+      - name: Sync regression issue
+        if: steps.evals.outputs.skipped != 'true'
+        run: |
+          status=$(cat runs/nightly/status)
+          label=eval-regression
+          title="Nightly eval regression: CRITICAL"
+          if [ "$MODE" != real ]; then
+            # Separate label, so a demo run can never close a real regression issue.
+            label=eval-regression-demo
+            title="[demo: automation test] $title"
+          fi
+          open=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
+          body=$(printf '%s\n\nRun and report: %s\n' "$(cat runs/nightly/summary.md)" "$REPORT_URL")
+          case "$status" in
+            CRITICAL)
+              if [ -n "$open" ]; then
+                gh issue comment "$open" --body "$body"
+              else
+                gh label create "$label" --color B60205 --force \
+                  --description "Nightly golden eval went CRITICAL"
+                gh issue create --title "$title" --label "$label" --body "$body"
+              fi
+              exit 1 ;;
+            PASS)
+              if [ -n "$open" ]; then
+                gh issue close "$open" --comment "$(printf 'Recovered: nightly eval is PASS again.\n\n%s' "$body")"
+              fi ;;
+            *)
+              # WARN is not a recovery; PROVIDER_UNSTABLE says nothing about the model.
+              echo "status $status: leaving issues as they are" ;;
+          esac

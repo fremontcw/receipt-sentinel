@@ -176,6 +176,8 @@ def _write_summary(path: Path, run: EvalRun, diff: DiffResult | None) -> None:
         )
     lines.append(f"- cost ${run.total_cost_usd:.3f} · p50 {run.p50_latency_ms} ms")
     path.write_text("\n".join(lines) + "\n")
+    # Machine-readable verdict for CI (the nightly workflow opens/closes issues on it).
+    (path.parent / "status").write_text(status + "\n")
 
 
 def _diff_for(
