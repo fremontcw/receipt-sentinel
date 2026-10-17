@@ -27,6 +27,7 @@ src/receipt_sentinel/
 │   └── receipt_record.py       Pydantic output schema
 ├── prompts/             Versioned YAML prompts (id, version, created_at, system, few-shot)
 ├── telemetry.py         OpenTelemetry: run / case / GenAI chat spans (off unless configured)
+mcp_run_history_server/  C# MCP server: lets an agent ask "what regressed?" (read-only)
 └── evals/
     ├── golden/           Hand-labeled receipts: cases/*.yaml + DATASET_CARD.md + dataset_version.txt
     ├── runner.py          Async batch: PromptConfig × golden cases → raw outputs
@@ -221,8 +222,29 @@ SENTINEL_TRACE_CONSOLE=1 uv run sentinel evals run --fake --no-save   # print sp
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 uv run sentinel evals run  # Jaeger, Grafana, Azure Monitor via a collector
 ```
 
-**CI:** `.github/workflows/tests.yml` runs ruff, mypy, pytest, and a keyless
-fake smoke run on every push/PR. `.github/workflows/evals.yml` runs the
+**MCP server (C#):** `mcp_run_history_server/` is a read-only
+[Model Context Protocol](https://modelcontextprotocol.io) server, built on
+Microsoft's official C# SDK, so an agent (Claude Code, Claude Desktop, VS
+Code) can query the run history in plain language. Two tools:
+`list_runs` (recent runs with pass rate, model, prompt, cost) and
+`what_regressed` (cases that newly fail against the blessed baseline, with
+the fields that broke, plus cases that newly pass). Run ids are validated
+before they touch a file path, and no receipt text is returned.
+
+```bash
+dotnet build mcp_run_history_server
+claude mcp add sentinel-runs \
+  -e SENTINEL_RUNS_DIR="$PWD/runs/local/runs" \
+  -e SENTINEL_BASELINE="$PWD/src/receipt_sentinel/evals/baseline.json" \
+  -- dotnet "$PWD/mcp_run_history_server/bin/Debug/net10.0/RunHistoryMcpServer.dll"
+```
+
+`tests/test_mcp_run_history_server.py` drives the built server over stdio
+JSON-RPC end to end (skipped if it isn't built; CI builds it).
+
+**CI:** `.github/workflows/tests.yml` runs ruff, mypy, a warnings-as-errors
+build of the C# MCP server, pytest, and a keyless fake smoke run on every
+push/PR. `.github/workflows/evals.yml` runs the
 real golden set on PRs touching `prompts/`, `categorize/`,
 `active_prompt.yaml`, `thresholds.yaml`, `golden/`, or `baseline.json`;
 uploads the report artifact, posts a sticky PR comment, and fails on

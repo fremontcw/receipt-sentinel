@@ -18,3 +18,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+
+# .NET build output
+mcp_run_history_server/bin/
+mcp_run_history_server/obj/

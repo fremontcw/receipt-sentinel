@@ -8,6 +8,10 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv python install 3.12
       - run: uv sync --extra dev --extra telemetry
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet build mcp_run_history_server -warnaserror
       - run: uv run ruff check .
       - run: uv run mypy
       - run: uv run pytest -q
