@@ -159,7 +159,7 @@
 - [ ] **Step 3: Implement** `dashboard.py`: escape every string with `html.escape`, and link `run_url` only if it starts with `https://github.com/`. Add a `@media (max-width: 600px)` rule so the table scrolls inside its own container rather than the page, and the SVG scales (`viewBox`, `width="100%"`). Wire the CLI subcommand.
 
 - [ ] **Step 4: Render it and look at it**
-  Run: `uv run sentinel evals dashboard --history tests/evals/fixtures/dashboard_history.jsonl --out runs/dashboard/index.html --repo-url https://github.com/fremontcw/project_01_model_regression_detection` (commit a small fixture of ~10 mixed records, including one baseline change and one unscored night). Open the page in a browser at desktop and at 375 px width.
+  Run: `uv run sentinel evals dashboard --history tests/evals/fixtures/dashboard_history.jsonl --out runs/dashboard/index.html --repo-url https://github.com/fremontcw/receipt-sentinel` (commit a small fixture of ~10 mixed records, including one baseline change and one unscored night). Open the page in a browser at desktop and at 375 px width.
   Expected: the story-first order, the trend with its marker, and no horizontal page scroll.
 
 - [ ] **Step 5: Run the full suite, then commit**
@@ -197,7 +197,7 @@
   Run: `actionlint`
   Expected: no output.
 
-- [ ] **Step 4: README** — add a "Live dashboard" link near the top (`https://fremontcw.github.io/project_01_model_regression_detection/`), plus a one-line note under the CI section: "Pages: Settings → Pages → Source: Deploy from a branch → `gh-pages` / root (one-time author step)". In `CLAUDE.md`, mark item 3 done.
+- [ ] **Step 4: README** — add a "Live dashboard" link near the top (`https://fremontcw.github.io/receipt-sentinel/`), plus a one-line note under the CI section: "Pages: Settings → Pages → Source: Deploy from a branch → `gh-pages` / root (one-time author step)". In `CLAUDE.md`, mark item 3 done.
 
 - [ ] **Step 5: Commit, push, and verify on GitHub**
   - `git commit -am "ci: publish nightly history to GitHub Pages; keep receipts out of artifacts"`, then `git push`.

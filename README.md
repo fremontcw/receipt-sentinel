@@ -2,7 +2,7 @@
 
 An LLM document-extraction feature and the CI that keeps it honest.
 
-**Live dashboard:** [nightly eval history](https://fremontcw.github.io/project_01_model_regression_detection/) (numbers only; rebuilt after every nightly run).
+**Live dashboard:** [nightly eval history](https://fremontcw.github.io/receipt-sentinel/) (numbers only; rebuilt after every nightly run).
 
 ## Problem
 

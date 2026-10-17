@@ -1,7 +1,7 @@
 # Receipt Sentinel — project notes
 
 Portfolio project: LLM receipt extraction feature + regression-detection CI harness.
-Public repo: https://github.com/fremontcw/project_01_model_regression_detection
+Public repo: https://github.com/fremontcw/receipt-sentinel
 
 - Design spec (approved, Codex-reviewed): `docs/superpowers/specs/2026-08-28-receipt-sentinel-design.md`
 - Eval harness (spec §7 steps 1–5) plan: `docs/superpowers/plans/2026-08-28-receipt-sentinel-eval-harness.md`. `make demo` runs keyless.
