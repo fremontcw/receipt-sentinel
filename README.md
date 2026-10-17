@@ -205,6 +205,21 @@ uv run sentinel evals run --out runs/local
 uv run sentinel evals promote-baseline <run_id> --out runs/local
 ```
 
+**Try the categorizer in a browser:**
+
+```bash
+make serve    # then open http://127.0.0.1:8000/docs
+```
+
+`POST /categorize` takes receipt text and returns the structured `ReceiptRecord`.
+It calls the same `categorize_receipt` the eval harness regression-tests. Without a
+key it runs keyless: pick a sample from the **Examples** dropdown (a clean receipt,
+one with a tip, and a prompt-injection attack, which comes back flagged
+`injection_detected: true`, not obeyed). Set `ANTHROPIC_API_KEY` (or
+`SENTINEL_PROVIDER=azure` plus the Foundry variables below) to extract your own
+receipts with the real model. It listens on `127.0.0.1` only, so there is no auth,
+and nothing is stored.
+
 **Same model on Azure (Microsoft Foundry):**
 
 ```bash

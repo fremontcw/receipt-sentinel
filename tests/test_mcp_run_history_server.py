@@ -25,8 +25,12 @@ pytestmark = pytest.mark.skipif(
 def _rpc(requests: list[dict[str, object]], env: dict[str, str]) -> dict[int, dict[str, object]]:
     """Send requests while keeping stdin open (the server stops at EOF), collect replies by id."""
     server = subprocess.Popen(  # noqa: S603 - fixed argv, no shell
-        [DOTNET, str(SERVER_DLL)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, text=True, env=env,
+        [DOTNET, str(SERVER_DLL)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        env=env,
     )
     assert server.stdin and server.stdout
     replies: dict[int, dict[str, object]] = {}
@@ -44,25 +48,43 @@ def _rpc(requests: list[dict[str, object]], env: dict[str, str]) -> dict[int, di
 
 
 def _call(request_id: int, tool: str, arguments: dict[str, object]) -> dict[str, object]:
-    return {"jsonrpc": "2.0", "id": request_id, "method": "tools/call",
-            "params": {"name": tool, "arguments": arguments}}
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": "tools/call",
+        "params": {"name": tool, "arguments": arguments},
+    }
 
 
 def test_server_lists_runs_and_reports_the_demo_regression(tmp_path: Path) -> None:
     paths = EvalPaths.default(tmp_path, fake=True)
-    command_evals_run(paths, fake=True, save=True, slack_webhook=None, report_url=None,
-                      demo_noise=True)
-    env = {**os.environ, "SENTINEL_RUNS_DIR": str(paths.runs_dir),
-           "SENTINEL_BASELINE": str(paths.baseline_path)}
-    replies = _rpc([
-        {"jsonrpc": "2.0", "id": 1, "method": "initialize",
-         "params": {"protocolVersion": "2025-06-18", "capabilities": {},
-                    "clientInfo": {"name": "pytest", "version": "1"}}},
-        {"jsonrpc": "2.0", "method": "notifications/initialized"},
-        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-        _call(3, "what_regressed", {}),
-        _call(4, "what_regressed", {"runId": "../../etc/passwd"}),
-    ], env)
+    command_evals_run(
+        paths, fake=True, save=True, slack_webhook=None, report_url=None, demo_noise=True
+    )
+    env = {
+        **os.environ,
+        "SENTINEL_RUNS_DIR": str(paths.runs_dir),
+        "SENTINEL_BASELINE": str(paths.baseline_path),
+    }
+    replies = _rpc(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "pytest", "version": "1"},
+                },
+            },
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+            _call(3, "what_regressed", {}),
+            _call(4, "what_regressed", {"runId": "../../etc/passwd"}),
+        ],
+        env,
+    )
 
     tools = {t["name"] for t in replies[2]["result"]["tools"]}  # type: ignore[index]
     assert tools == {"list_runs", "what_regressed"}

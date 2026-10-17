@@ -130,8 +130,16 @@ def save_run(run: EvalRun, *, db_path: Path, json_dir: Path) -> Path:
         conn.execute(
             "INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                run.run_id, run.created_at, run.prompt_label, run.model_id, run.dataset_version,
-                run.status.value, run.pass_rate, run.total_cost_usd, run.git_sha, str(json_path),
+                run.run_id,
+                run.created_at,
+                run.prompt_label,
+                run.model_id,
+                run.dataset_version,
+                run.status.value,
+                run.pass_rate,
+                run.total_cost_usd,
+                run.git_sha,
+                str(json_path),
             ),
         )
         conn.commit()

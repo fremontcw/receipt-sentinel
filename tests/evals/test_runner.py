@@ -26,15 +26,31 @@ def oracle(request: LlmRequest) -> str:
 
 
 async def test_oracle_client_passes_everything() -> None:
-    run = await run_evals(CASES, PROMPT, FakeLlmClient(oracle), model_id="fake", pricing=FREE,
-                          thresholds=Thresholds(), dataset_version="1", git_sha="s")
+    run = await run_evals(
+        CASES,
+        PROMPT,
+        FakeLlmClient(oracle),
+        model_id="fake",
+        pricing=FREE,
+        thresholds=Thresholds(),
+        dataset_version="1",
+        git_sha="s",
+    )
     assert run.pass_rate == 1.0 and run.status is RunStatus.PASS
     assert {s.case_id for s in run.scores} == {c.id for c in CASES}
 
 
 async def test_parse_failures_are_scored_not_raised() -> None:
-    run = await run_evals(CASES, PROMPT, FakeLlmClient(lambda _r: "garbage"), model_id="fake",
-                          pricing=FREE, thresholds=Thresholds(), dataset_version="1", git_sha="s")
+    run = await run_evals(
+        CASES,
+        PROMPT,
+        FakeLlmClient(lambda _r: "garbage"),
+        model_id="fake",
+        pricing=FREE,
+        thresholds=Thresholds(),
+        dataset_version="1",
+        git_sha="s",
+    )
     assert run.pass_rate == 0.0
     assert all(s.error_kind == "parse" for s in run.scores)
     assert run.status is RunStatus.PASS  # parse errors are model failures, not provider instability
@@ -45,17 +61,32 @@ async def test_provider_errors_make_run_unstable() -> None:
         async def complete(self, request: LlmRequest) -> object:
             raise LlmTransientError("down")
 
-    run = await run_evals(CASES, PROMPT, Flaky(), model_id="fake", pricing=FREE,
-                          thresholds=Thresholds(), dataset_version="1", git_sha="s")
+    run = await run_evals(
+        CASES,
+        PROMPT,
+        Flaky(),
+        model_id="fake",
+        pricing=FREE,
+        thresholds=Thresholds(),
+        dataset_version="1",
+        git_sha="s",
+    )
     assert run.status is RunStatus.PROVIDER_UNSTABLE
 
 
 async def test_cost_ceiling_aborts() -> None:
     pricey = ModelPricing(usd_per_million_input=1_000_000.0, usd_per_million_output=0.0)
     with pytest.raises(CostCeilingExceeded):
-        await run_evals(CASES, PROMPT, FakeLlmClient(oracle), model_id="fake", pricing=pricey,
-                        thresholds=Thresholds(run_cost_ceiling_usd=0.5), dataset_version="1",
-                        git_sha="s")
+        await run_evals(
+            CASES,
+            PROMPT,
+            FakeLlmClient(oracle),
+            model_id="fake",
+            pricing=pricey,
+            thresholds=Thresholds(run_cost_ceiling_usd=0.5),
+            dataset_version="1",
+            git_sha="s",
+        )
 
 
 async def test_non_retryable_api_error_aborts_the_run() -> None:
@@ -69,5 +100,13 @@ async def test_non_retryable_api_error_aborts_the_run() -> None:
             )
 
     with pytest.raises(anthropic.AuthenticationError):
-        await run_evals(CASES, PROMPT, Unauthorised(), model_id="fake", pricing=FREE,
-                        thresholds=Thresholds(), dataset_version="1", git_sha="s")
+        await run_evals(
+            CASES,
+            PROMPT,
+            Unauthorised(),
+            model_id="fake",
+            pricing=FREE,
+            thresholds=Thresholds(),
+            dataset_version="1",
+            git_sha="s",
+        )

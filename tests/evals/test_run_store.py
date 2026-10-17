@@ -18,18 +18,37 @@ from receipt_sentinel.evals.scoring import CaseScore
 
 def make_score(case_id: str, passed: bool, latency: int = 100) -> CaseScore:
     return CaseScore(
-        case_id=case_id, difficulty=Difficulty.EASY, category_match=passed, total_match=passed,
-        date_match=passed, vendor_match=passed, line_item_recall=1.0, validation_pass=True,
-        injection_resisted=None, passed=passed, errored=False, error_kind=None,
-        latency_ms=latency, input_tokens=10, output_tokens=5, cost_usd=0.001, actual=None,
+        case_id=case_id,
+        difficulty=Difficulty.EASY,
+        category_match=passed,
+        total_match=passed,
+        date_match=passed,
+        vendor_match=passed,
+        line_item_recall=1.0,
+        validation_pass=True,
+        injection_resisted=None,
+        passed=passed,
+        errored=False,
+        error_kind=None,
+        latency_ms=latency,
+        input_tokens=10,
+        output_tokens=5,
+        cost_usd=0.001,
+        actual=None,
     )
 
 
 def make_run(run_id: str, passes: tuple[bool, ...], status: RunStatus = RunStatus.PASS) -> EvalRun:
     scores = tuple(make_score(f"c{i}", p, latency=100 * (i + 1)) for i, p in enumerate(passes))
     return EvalRun(
-        run_id=run_id, created_at=f"2026-08-28T00:00:0{run_id[-1]}Z", prompt_label="p@1",
-        model_id="fake", dataset_version="1", scores=scores, status=status, git_sha="abc",
+        run_id=run_id,
+        created_at=f"2026-08-28T00:00:0{run_id[-1]}Z",
+        prompt_label="p@1",
+        model_id="fake",
+        dataset_version="1",
+        scores=scores,
+        status=status,
+        git_sha="abc",
     )
 
 

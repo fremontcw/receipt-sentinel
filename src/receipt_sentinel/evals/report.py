@@ -127,17 +127,19 @@ def _scorecard_table(
         if diff.drift
         else ""
     )
-    return f"""<table>
-<tr><th>Pass rate</th><td>{baseline_rate:.1%} &rarr; {current.pass_rate:.1%} """ \
+    return (
+        f"""<table>
+<tr><th>Pass rate</th><td>{baseline_rate:.1%} &rarr; {current.pass_rate:.1%} """
         f"""({_fmt_delta(diff.pass_rate_delta_points)})</td></tr>
 <tr><th>Regressions / improvements</th>
 <td>{len(diff.regressions)} / {len(diff.improvements)}</td></tr>
 <tr><th>Adversarial failures</th><td>{diff.adversarial_failures}</td></tr>
 <tr><th>p50 latency</th><td>{latency_from}{current.p50_latency_ms} ms</td></tr>
-<tr><th>Cost</th><td>{cost_from}${current.total_cost_usd:.4f} total, """ \
+<tr><th>Cost</th><td>{cost_from}${current.total_cost_usd:.4f} total, """
         f"""${per_receipt:.4f} per receipt</td></tr>
 {drift_row}
 </table>"""
+    )
 
 
 def render_report_html(
