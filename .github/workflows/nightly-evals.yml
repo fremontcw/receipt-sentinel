@@ -45,9 +45,15 @@ jobs:
               fi
               args=() ;;
           esac
-          # Exit 1 means CRITICAL, which the next step handles; a crash leaves no status file
-          # and fails the next step instead.
-          uv run sentinel evals run "${args[@]}" --no-save --out runs/nightly --report-url "$REPORT_URL" || true
+          # Exit 1 means CRITICAL, which the next step handles. Exit 2 means the provider
+          # rejected the request (bad key, no workspace, unknown model): fail loudly here.
+          # A crash leaves no status file and fails the next step instead.
+          code=0
+          uv run sentinel evals run "${args[@]}" --no-save --out runs/nightly --report-url "$REPORT_URL" || code=$?
+          if [ "$code" -ge 2 ]; then
+            echo "::error::eval could not run (exit $code); check the ANTHROPIC_API_KEY secret"
+            exit "$code"
+          fi
       - uses: actions/upload-artifact@v4
         if: steps.evals.outputs.skipped != 'true'
         with:

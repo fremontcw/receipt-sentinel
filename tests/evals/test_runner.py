@@ -58,8 +58,9 @@ async def test_cost_ceiling_aborts() -> None:
                         git_sha="s")
 
 
-async def test_non_retryable_api_error_is_a_provider_error_not_a_crash() -> None:
-    """A 401 escapes the client's retry policy; the run must survive it."""
+async def test_non_retryable_api_error_aborts_the_run() -> None:
+    """A 401/400 is a broken setup (bad key, no workspace, unknown model), not a flaky
+    provider: scoring it as PROVIDER_UNSTABLE made a misconfigured CI pass silently."""
 
     class Unauthorised:
         async def complete(self, request: LlmRequest) -> object:
@@ -67,7 +68,6 @@ async def test_non_retryable_api_error_is_a_provider_error_not_a_crash() -> None
                 message="bad key", response=MagicMock(status_code=401), body=None
             )
 
-    run = await run_evals(CASES, PROMPT, Unauthorised(), model_id="fake", pricing=FREE,
-                          thresholds=Thresholds(), dataset_version="1", git_sha="s")
-    assert run.status is RunStatus.PROVIDER_UNSTABLE
-    assert all(s.error_kind == "provider" for s in run.scores)
+    with pytest.raises(anthropic.AuthenticationError):
+        await run_evals(CASES, PROMPT, Unauthorised(), model_id="fake", pricing=FREE,
+                        thresholds=Thresholds(), dataset_version="1", git_sha="s")

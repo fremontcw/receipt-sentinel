@@ -13,7 +13,10 @@ Todo:
 
 import argparse
 import os
+import sys
 from pathlib import Path
+
+import anthropic
 
 from receipt_sentinel.categorize.anthropic_llm_client import DEFAULT_MODEL_ID
 from receipt_sentinel.evals.eval_commands import (
@@ -78,8 +81,23 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Exit 1 means a CRITICAL regression; 2 means the run could not happen at all.
+EXIT_PROVIDER_REJECTED = 2
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
+    try:
+        return _dispatch(_build_parser().parse_args(argv))
+    except anthropic.APIStatusError as err:
+        # The API's message names the problem (key, workspace, model) and never the key.
+        print(
+            f"provider rejected the request (HTTP {err.status_code}): {err.message}",
+            file=sys.stderr,
+        )
+        return EXIT_PROVIDER_REJECTED
+
+
+def _dispatch(args: argparse.Namespace) -> int:
     if args.command == "promote":
         default = EvalPaths.default(Path("runs"))
         return command_promote_case(default, args.receipt_text, args.case_id)

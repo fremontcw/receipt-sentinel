@@ -14,8 +14,6 @@ Todo:
 import asyncio
 from datetime import UTC, datetime
 
-import anthropic
-
 from receipt_sentinel.categorize.categorize_receipt import ParseFailure, categorize_receipt
 from receipt_sentinel.categorize.llm_client import LlmClient, LlmResponse, LlmTransientError
 from receipt_sentinel.evals.golden_case import GoldenCase
@@ -65,10 +63,11 @@ async def _categorize_and_score(
             text=err.raw_text, input_tokens=0, output_tokens=0, latency_ms=0, model_id=model_id
         )
         return errored_score(case, "parse", raw, pricing)
-    except (LlmTransientError, anthropic.APIStatusError):
-        # APIStatusError covers the non-retryable statuses the client never retries (401,
-        # 403, 404, 400). They are provider problems, not model failures — one must not
-        # crash the whole run.
+    except LlmTransientError:
+        # Retries exhausted on 429/5xx/timeouts: the provider is flaky, not the model.
+        # Non-retryable statuses (400/401/403/404) are deliberately not caught: they mean
+        # the setup is broken (bad key, no workspace, unknown model), and scoring them as
+        # PROVIDER_UNSTABLE made a misconfigured CI pass silently. The CLI reports them.
         return errored_score(case, "provider", None, pricing)
     return score_case(case, result.record, result.response, pricing)
 
