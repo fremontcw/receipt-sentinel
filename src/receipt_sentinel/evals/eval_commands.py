@@ -18,7 +18,7 @@ import os
 import shutil
 import subprocess
 import urllib.error
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from hashlib import sha1
 from pathlib import Path
@@ -37,7 +37,12 @@ from receipt_sentinel.categorize.azure_foundry_llm_client import (
 from receipt_sentinel.categorize.llm_client import FakeLlmClient, LlmClient, LlmRequest
 from receipt_sentinel.categorize.receipt_record import Category
 from receipt_sentinel.evals.alerts import build_slack_payload, post_slack_alert
-from receipt_sentinel.evals.diff import DiffResult, compute_drift, diff_against_baseline
+from receipt_sentinel.evals.diff import (
+    DiffResult,
+    compute_drift,
+    diff_against_baseline,
+    drift_from_pass_rates,
+)
 from receipt_sentinel.evals.golden_case import (
     GOLDEN_DIR,
     GoldenCase,
@@ -45,6 +50,14 @@ from receipt_sentinel.evals.golden_case import (
     load_golden_cases,
 )
 from receipt_sentinel.evals.report import render_report_html
+from receipt_sentinel.evals.run_history import (
+    HistoryRecord,
+    append_history,
+    comparable_pass_rates,
+    load_history,
+    scored_night_from,
+    unscored_night,
+)
 from receipt_sentinel.evals.run_store import (
     EvalRun,
     RunStatus,
@@ -175,13 +188,33 @@ def _write_summary(path: Path, run: EvalRun, diff: DiffResult | None) -> None:
             f"adversarial failures {diff.adversarial_failures}"
         )
     lines.append(f"- cost ${run.total_cost_usd:.3f} · p50 {run.p50_latency_ms} ms")
+    if diff and diff.drift:
+        lines.append(
+            f"- drift {diff.drift.window_runs}-night avg {diff.drift.moving_average_pass_rate:.1%} "
+            f"({'DRIFTING' if diff.drift.drifting else 'steady'})"
+        )
     path.write_text("\n".join(lines) + "\n")
-    # Machine-readable verdict for CI (the nightly workflow opens/closes issues on it).
+    # Machine-readable verdict for CI (the nightly workflow opens/closes issues on these).
     (path.parent / "status").write_text(status + "\n")
+    (path.parent / "drift").write_text("drifting\n" if _is_drifting(diff) else "steady\n")
+
+
+def _is_drifting(diff: DiffResult | None) -> bool:
+    return bool(diff and diff.drift and diff.drift.drifting)
+
+
+def golden_set_is_all_synthetic(cases: list[GoldenCase]) -> bool:
+    """True while no real (redacted) receipt is in the golden set — the only time a
+    receipt-level report may leave this machine."""
+    return all(c.source == "synthetic" for c in cases)
 
 
 def _diff_for(
-    run: EvalRun, paths: EvalPaths, cases: list[GoldenCase], thresholds: Thresholds
+    run: EvalRun,
+    paths: EvalPaths,
+    cases: list[GoldenCase],
+    thresholds: Thresholds,
+    history: list[HistoryRecord] | None = None,
 ) -> DiffResult:
     case_categories = {c.id: c.expected.category.value for c in cases}
     if not paths.baseline_path.exists():
@@ -193,15 +226,19 @@ def _diff_for(
             run, run, thresholds=thresholds, case_categories=case_categories
         )
     baseline = load_run_json(paths.baseline_path)
-    history = list_recent_runs(
-        paths.db_path, dataset_version=run.dataset_version, limit=thresholds.drift_window_runs
-    )
+    if history is not None:
+        # Published nightly history: only nights judged against this baseline count.
+        prior = comparable_pass_rates(
+            history, dataset_version=run.dataset_version, baseline_run_id=baseline.run_id
+        )
+        drift = drift_from_pass_rates([run.pass_rate, *prior], baseline.pass_rate, thresholds)
+    else:
+        recent = list_recent_runs(
+            paths.db_path, dataset_version=run.dataset_version, limit=thresholds.drift_window_runs
+        )
+        drift = compute_drift([run, *recent], baseline, thresholds)
     return diff_against_baseline(
-        run,
-        baseline,
-        thresholds=thresholds,
-        case_categories=case_categories,
-        drift=compute_drift([run, *history], baseline, thresholds),
+        run, baseline, thresholds=thresholds, case_categories=case_categories, drift=drift
     )
 
 
@@ -215,6 +252,8 @@ def command_evals_run(
     demo_noise: bool = False,
     provider: str = "anthropic",
     client_override: LlmClient | None = None,
+    history_path: Path | None = None,
+    public: bool = False,
 ) -> int:
     """Run the golden evals, diff against the baseline, write the report, alert, store.
 
@@ -229,11 +268,17 @@ def command_evals_run(
         client_override: Test-only seam — an LlmClient to use instead of building one, so
             tests can exercise the provider-error and regression merge gates without a
             network call. Never set from the CLI.
+        history_path: Published numbers-only nightly history: drift is computed from it and
+            this night is appended to it (scored or not).
+        public: Outputs leave this machine (CI artifacts): skip the receipt-level report
+            unless every golden case is synthetic.
 
     Returns:
-        Process exit code: 1 on a CRITICAL diff, else 0.
+        Process exit code: 1 on a CRITICAL diff or when drifting, else 0.
     """
     cases = load_golden_cases(paths.golden_dir)
+    # Read before spending anything: a corrupt history must fail the run up front.
+    history = load_history(history_path) if history_path else None
     dataset_version = load_dataset_version(paths.golden_dir)
     thresholds = load_thresholds(paths.thresholds_path)
     client, model_id = build_client(
@@ -257,16 +302,19 @@ def command_evals_run(
     if run.status is RunStatus.PROVIDER_UNSTABLE:
         print(f"{run.run_id}: PROVIDER_UNSTABLE (error rate {run.error_rate:.0%}) — not stored")
         _write_summary(paths.report_path.parent / "summary.md", run, None)
+        if history_path:
+            reason = f"provider unstable (error rate {run.error_rate:.0%})"
+            append_history(history_path, unscored_night(reason, run_url=report_url))
         return 0
-    diff = _diff_for(run, paths, cases, thresholds)
-    history_for_chart = list(
-        reversed(list_recent_runs(paths.db_path, dataset_version=dataset_version, limit=30))
-    ) + [run]
-    paths.report_path.write_text(render_report_html(run, diff, cases, history_for_chart))
+    diff = _diff_for(run, paths, cases, thresholds, history)
+    _write_report(run, diff, cases, paths, public=public)
     _write_summary(paths.report_path.parent / "summary.md", run, diff)
-    # Store before alerting: a Slack outage must never cost us the run.
+    # Store before alerting: a Slack outage must never cost us the run. The stored status
+    # is the diff verdict, not run_evals' PASS placeholder.
     if save:
-        save_run(run, db_path=paths.db_path, json_dir=paths.runs_dir)
+        save_run(replace(run, status=diff.status), db_path=paths.db_path, json_dir=paths.runs_dir)
+    if history_path:
+        append_history(history_path, scored_night_from(run, diff, run_url=report_url))
     try:
         post_slack_alert(build_slack_payload(run, diff, report_url), slack_webhook)
     except (RuntimeError, urllib.error.URLError, OSError) as err:
@@ -274,9 +322,30 @@ def command_evals_run(
         print(f"slack alert failed ({type(err).__name__}); run was still saved and reported")
     print(
         f"{run.run_id}: {diff.status.value} pass {run.pass_rate:.1%} "
-        f"({diff.pass_rate_delta_points:+.1f} pts) → {paths.report_path}"
+        f"({diff.pass_rate_delta_points:+.1f} pts)"
+        + (" DRIFTING" if _is_drifting(diff) else "")
+        + f" → {paths.report_path.parent}"
     )
-    return 1 if diff.status is RunStatus.CRITICAL else 0
+    return 1 if diff.status is RunStatus.CRITICAL or _is_drifting(diff) else 0
+
+
+def _write_report(
+    run: EvalRun, diff: DiffResult, cases: list[GoldenCase], paths: EvalPaths, *, public: bool
+) -> None:
+    if public and not golden_set_is_all_synthetic(cases):
+        print("golden set has real receipts: receipt-level report not written for publishing")
+        return
+    history_for_chart = list(
+        reversed(list_recent_runs(paths.db_path, dataset_version=run.dataset_version, limit=30))
+    ) + [run]
+    paths.report_path.write_text(render_report_html(run, diff, cases, history_for_chart))
+
+
+def command_record_skip(history_path: Path, *, reason: str, run_url: str | None) -> int:
+    """Record a night that produced no score (no key, rejected key) so it is never a gap."""
+    append_history(history_path, unscored_night(reason, run_url=run_url))
+    print(f"recorded not-scored night: {reason}")
+    return 0
 
 
 def _pct_change(old: float, new: float) -> str:

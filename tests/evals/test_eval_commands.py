@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import pytest
@@ -13,9 +14,17 @@ from receipt_sentinel.evals.eval_commands import (
     command_evals_run,
     command_promote_baseline,
     command_promote_case,
+    command_record_skip,
 )
-from receipt_sentinel.evals.golden_case import load_golden_cases
-from receipt_sentinel.evals.run_store import list_recent_runs, load_run_json
+from receipt_sentinel.evals.golden_case import GOLDEN_DIR, load_golden_cases
+from receipt_sentinel.evals.run_history import (
+    HISTORY_SCHEMA_VERSION,
+    ScoredNight,
+    UnscoredNight,
+    append_history,
+    load_history,
+)
+from receipt_sentinel.evals.run_store import RunStatus, list_recent_runs, load_run_json
 
 
 def paths_in(tmp_path: Path) -> EvalPaths:
@@ -125,3 +134,106 @@ def test_compare_models_worse_candidate_is_critical_with_cost_and_latency(
 def test_compare_models_unpriced_candidate_fails_before_any_model_call(tmp_path: Path) -> None:
     with pytest.raises(SystemExit, match="no pricing for model 'claude-unpriced'"):
         command_compare_models(paths_in(tmp_path), candidate_model="claude-unpriced")
+
+
+def _bless_clean_baseline(p: EvalPaths) -> str:
+    command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
+    run_id = list_recent_runs(p.db_path, dataset_version="1", limit=1)[0].run_id
+    assert command_promote_baseline(p, run_id) == 0
+    return run_id
+
+
+def _out(p: EvalPaths, name: str) -> str:
+    return (p.report_path.parent / name).read_text()
+
+
+def test_stored_run_records_diff_verdict(tmp_path: Path) -> None:
+    p = paths_in(tmp_path)
+    _bless_clean_baseline(p)
+    command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None,
+                      demo_noise=True)
+    # Both runs land in the same second, so recency order is a coin toss: compare as a set.
+    # Before the fix both were stored as the PASS placeholder.
+    stored = {r.status for r in list_recent_runs(p.db_path, dataset_version="1", limit=2)}
+    assert stored == {RunStatus.PASS, RunStatus.CRITICAL}
+
+
+def test_history_run_appends_scored_night(tmp_path: Path) -> None:
+    p = paths_in(tmp_path)
+    baseline_id = _bless_clean_baseline(p)
+    history = tmp_path / "h.jsonl"
+    assert command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
+                             history_path=history) == 0
+    [record] = load_history(history)
+    assert isinstance(record, ScoredNight) and record.baseline_run_id == baseline_id
+    assert _out(p, "drift") == "steady\n"
+
+
+def _prefill(history: Path, baseline_id: str, pass_rate: float) -> None:
+    for _ in range(7):
+        append_history(history, ScoredNight(
+            kind="scored", schema_version=HISTORY_SCHEMA_VERSION,
+            created_at="2026-10-01T06:00:00Z", run_url=None, model_id="fake",
+            prompt_label="p@1", dataset_version="1", baseline_run_id=baseline_id,
+            case_count=56, pass_rate=pass_rate, delta_points=0.0, regressions=0,
+            adversarial_failures=0, cost_usd=0.0, p50_latency_ms=1, status="PASS",
+            drifting=False, drift_gap_points=None,
+        ))
+
+
+def test_drifting_history_exits_one_and_writes_drift(tmp_path: Path) -> None:
+    p = paths_in(tmp_path)
+    history = tmp_path / "h.jsonl"
+    _prefill(history, _bless_clean_baseline(p), 0.80)
+    assert command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
+                             history_path=history) == 1
+    assert _out(p, "drift") == "drifting\n"
+    assert _out(p, "status") == "PASS\n"
+    newest = load_history(history)[-1]
+    assert isinstance(newest, ScoredNight) and newest.drifting is True
+
+
+def test_history_ignores_nights_from_an_old_baseline(tmp_path: Path) -> None:
+    p = paths_in(tmp_path)
+    _bless_clean_baseline(p)
+    history = tmp_path / "h.jsonl"
+    _prefill(history, "old", 0.80)
+    assert command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
+                             history_path=history) == 0
+    assert _out(p, "drift") == "steady\n"
+
+
+def test_provider_unstable_with_history_appends_unscored(tmp_path: Path) -> None:
+    class Flaky:
+        async def complete(self, request: LlmRequest) -> LlmResponse:
+            raise LlmTransientError("down")
+
+    p = paths_in(tmp_path)
+    history = tmp_path / "h.jsonl"
+    command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
+                      client_override=Flaky(), history_path=history)
+    [record] = load_history(history)
+    assert isinstance(record, UnscoredNight) and record.reason.startswith("provider unstable")
+
+
+def test_public_run_omits_report_when_golden_set_has_real_case(tmp_path: Path) -> None:
+    golden = tmp_path / "golden"
+    shutil.copytree(GOLDEN_DIR, golden)
+    case = next((golden / "cases").glob("*.yaml"))
+    case.write_text(case.read_text().replace("source: synthetic", "source: real_redacted"))
+    p = EvalPaths(**{**paths_in(tmp_path).__dict__, "golden_dir": golden})
+    command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None, public=True)
+    assert not p.report_path.exists()
+    assert (p.report_path.parent / "summary.md").exists()
+
+    synthetic = paths_in(tmp_path / "synthetic")
+    command_evals_run(synthetic, fake=True, save=False, slack_webhook=None, report_url=None,
+                      public=True)
+    assert synthetic.report_path.exists()
+
+
+def test_record_skip_appends_reason(tmp_path: Path) -> None:
+    history = tmp_path / "h.jsonl"
+    assert command_record_skip(history, reason="no API key", run_url=None) == 0
+    [record] = load_history(history)
+    assert isinstance(record, UnscoredNight) and record.reason == "no API key"

@@ -39,9 +39,7 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    `eval-regression-demo` label. Drift is not checked nightly yet: CI has no run history (solve with #3).
 3. Publish run history as a GitHub Pages dashboard (reuse `report.py`).
 4. Small REST endpoint for the categorize feature.
-5. Known issue: runs are saved before the baseline diff, so a stored run's `status` is the PASS placeholder
-   even when the diff was CRITICAL (`command_evals_run` saves `run`, not the diff verdict). The MCP server
-   omits status for this reason. Fix by storing the diff status.
+5. ~~Stored-status bug~~ fixed: `save_run` gets the diff verdict (MCP server could expose status now).
 6. When the author has Azure: deploy Claude in Foundry, set `ANTHROPIC_FOUNDRY_API_KEY`/`_RESOURCE`/`_MODEL`,
    `uv run sentinel evals run --provider azure --out runs/azure`; then switch to Entra ID auth (TODO in the
    module header).
