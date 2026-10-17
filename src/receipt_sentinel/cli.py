@@ -20,6 +20,7 @@ from receipt_sentinel.evals.eval_commands import (
     command_promote_baseline,
     command_promote_case,
 )
+from receipt_sentinel.telemetry import configure_tracing
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -58,12 +59,16 @@ def main(argv: list[str] | None = None) -> int:
         return command_promote_case(default, args.receipt_text, args.case_id)
     paths = EvalPaths.default(args.out, fake=args.fake)
     if args.command == "run":
-        return command_evals_run(
-            paths,
-            fake=args.fake,
-            save=not args.no_save,
-            slack_webhook=os.environ.get("SLACK_WEBHOOK_URL"),
-            report_url=args.report_url,
-            demo_noise=args.demo_noise,
-        )
+        shutdown_tracing = configure_tracing()
+        try:
+            return command_evals_run(
+                paths,
+                fake=args.fake,
+                save=not args.no_save,
+                slack_webhook=os.environ.get("SLACK_WEBHOOK_URL"),
+                report_url=args.report_url,
+                demo_noise=args.demo_noise,
+            )
+        finally:
+            shutdown_tracing()
     return command_promote_baseline(paths, args.run_id)

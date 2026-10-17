@@ -47,6 +47,7 @@ from receipt_sentinel.evals.runner import run_evals
 from receipt_sentinel.evals.scoring import load_model_pricing
 from receipt_sentinel.evals.thresholds import Thresholds, load_thresholds
 from receipt_sentinel.prompts.prompt_config import load_active_prompt
+from receipt_sentinel.telemetry import TracingLlmClient
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -121,13 +122,13 @@ def build_client(
 ) -> tuple[LlmClient, str]:
     """Pick the client for a run: the label oracle under --fake, else the real model."""
     if fake:
-        return _label_oracle(cases, noisy=demo_noise), "fake"
+        return TracingLlmClient(_label_oracle(cases, noisy=demo_noise), "fake"), "fake"
     if demo_noise:
         raise SystemExit("--demo-noise only applies to --fake runs")
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise SystemExit("ANTHROPIC_API_KEY is not set")
-    return AnthropicLlmClient(api_key), DEFAULT_MODEL_ID
+    return TracingLlmClient(AnthropicLlmClient(api_key), "anthropic"), DEFAULT_MODEL_ID
 
 
 def _write_summary(path: Path, run: EvalRun, diff: DiffResult | None) -> None:

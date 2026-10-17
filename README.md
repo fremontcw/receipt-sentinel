@@ -26,6 +26,7 @@ src/receipt_sentinel/
 │   ├── anthropic_llm_client.py Real client (claude-sonnet-5, thinking disabled)
 │   └── receipt_record.py       Pydantic output schema
 ├── prompts/             Versioned YAML prompts (id, version, created_at, system, few-shot)
+├── telemetry.py         OpenTelemetry: run / case / GenAI chat spans (off unless configured)
 └── evals/
     ├── golden/           Hand-labeled receipts: cases/*.yaml + DATASET_CARD.md + dataset_version.txt
     ├── runner.py          Async batch: PromptConfig × golden cases → raw outputs
@@ -205,6 +206,19 @@ Turning a real failed receipt into a new golden case:
 
 ```bash
 uv run sentinel evals promote RECEIPT_TXT --id CASE_ID
+```
+
+**Tracing (OpenTelemetry):** every run emits one `eval_run` span, one
+`eval_case` span per golden case, and one `chat <model>` span per LLM call,
+using the OpenTelemetry GenAI conventions (model, input/output tokens, stop
+reason, plus each case's pass/fail, difficulty, and cost). Prompt text,
+receipt text, and model output are never put on spans, since receipts carry PII.
+Off by default; turn it on with environment variables:
+
+```bash
+uv sync --extra telemetry
+SENTINEL_TRACE_CONSOLE=1 uv run sentinel evals run --fake --no-save   # print spans
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 uv run sentinel evals run  # Jaeger, Grafana, Azure Monitor via a collector
 ```
 
 **CI:** `.github/workflows/tests.yml` runs ruff, mypy, pytest, and a keyless

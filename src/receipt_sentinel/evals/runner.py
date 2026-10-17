@@ -23,6 +23,7 @@ from receipt_sentinel.evals.run_store import EvalRun, RunStatus, new_run_id, pro
 from receipt_sentinel.evals.scoring import CaseScore, ModelPricing, errored_score, score_case
 from receipt_sentinel.evals.thresholds import Thresholds
 from receipt_sentinel.prompts.prompt_config import PromptConfig
+from receipt_sentinel.telemetry import tracer
 
 
 class CostCeilingExceeded(Exception):  # noqa: N818 - brief's exact required name
@@ -30,6 +31,24 @@ class CostCeilingExceeded(Exception):  # noqa: N818 - brief's exact required nam
 
 
 async def _score_one(
+    case: GoldenCase,
+    prompt: PromptConfig,
+    client: LlmClient,
+    model_id: str,
+    pricing: ModelPricing,
+) -> CaseScore:
+    with tracer.start_as_current_span("eval_case") as span:
+        score = await _categorize_and_score(case, prompt, client, model_id, pricing)
+        span.set_attribute("receipt_sentinel.case.id", case.id)
+        span.set_attribute("receipt_sentinel.case.difficulty", score.difficulty.value)
+        span.set_attribute("receipt_sentinel.case.passed", score.passed)
+        span.set_attribute("receipt_sentinel.case.cost_usd", score.cost_usd)
+        if score.error_kind:
+            span.set_attribute("error.type", score.error_kind)
+        return score
+
+
+async def _categorize_and_score(
     case: GoldenCase,
     prompt: PromptConfig,
     client: LlmClient,
@@ -100,18 +119,16 @@ async def run_evals(
                 )
             return score
 
-    tasks = [asyncio.create_task(guarded(case)) for case in cases]
-    try:
-        scores = list(await asyncio.gather(*tasks))
-    except BaseException:
-        # Any escaping exception (cost ceiling, cancellation, an unforeseen client error)
-        # leaves siblings running. Cancel and reap every task — including the raiser — so
-        # cancellation is fully awaited and no "Task was destroyed but it is pending" /
-        # unretrieved-exception noise leaks out.
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
-        raise
+    with tracer.start_as_current_span("eval_run") as span:
+        span.set_attribute("receipt_sentinel.run.prompt_label", prompt.label)
+        span.set_attribute("gen_ai.request.model", model_id)
+        span.set_attribute("receipt_sentinel.run.dataset_version", dataset_version)
+        span.set_attribute("receipt_sentinel.run.case_count", len(cases))
+        # Tasks copy the current context when created, so each case span nests under this one.
+        scores = await _gather_cancelling_on_error(
+            [asyncio.create_task(guarded(case)) for case in cases]
+        )
+        span.set_attribute("receipt_sentinel.run.cost_usd", round(spent, 6))
 
     ordered = tuple(sorted(scores, key=lambda s: s.case_id))
     unstable = provider_error_rate(ordered) > thresholds.max_error_rate
@@ -125,3 +142,17 @@ async def run_evals(
         status=RunStatus.PROVIDER_UNSTABLE if unstable else RunStatus.PASS,
         git_sha=git_sha,
     )
+
+
+async def _gather_cancelling_on_error(tasks: list[asyncio.Task[CaseScore]]) -> list[CaseScore]:
+    try:
+        return list(await asyncio.gather(*tasks))
+    except BaseException:
+        # Any escaping exception (cost ceiling, cancellation, an unforeseen client error)
+        # leaves siblings running. Cancel and reap every task — including the raiser — so
+        # cancellation is fully awaited and no "Task was destroyed but it is pending" /
+        # unretrieved-exception noise leaks out.
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
