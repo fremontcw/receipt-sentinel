@@ -1,5 +1,6 @@
 import io
 import shutil
+import time
 
 import pymupdf
 import pytesseract
@@ -11,14 +12,17 @@ from receipt_sentinel.evals.synthetic_fixture_renderer import (
     render_photo_jpeg,
     render_scanned_pdf,
 )
-from receipt_sentinel.extract import document_extractor
-from receipt_sentinel.extract.document_extractor import extract_document
+from receipt_sentinel.extract.document_extractor import (
+    extract_document,
+    extract_document_in_process,
+)
 from receipt_sentinel.extract.extracted_document import (
     MAX_PAGES,
     ExtractionRejected,
     OcrUnavailable,
     RejectionKind,
 )
+from tests.extract.malformed_pdf_builders import embedded_image_bomb_pdf, vector_heavy_pdf
 
 needs_tesseract = pytest.mark.skipif(shutil.which("tesseract") is None, reason="needs tesseract")
 RECEIPT = "SHELL GAS STATION\n08/05/2026\nUNLEADED 10.2 GAL  38.76\nTOTAL  38.76"
@@ -82,9 +86,10 @@ def test_oversized_image_rejected_before_decode() -> None:
     assert _rejection_kind(png.getvalue()) == "too_large"
 
 
-def test_deadline_exceeded_is_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(document_extractor, "MAX_EXTRACT_SECONDS", 0.0)
-    assert _rejection_kind(render_scanned_pdf(RECEIPT)) == "timeout"
+def test_deadline_exceeded_before_ocr_is_timeout() -> None:
+    with pytest.raises(ExtractionRejected) as err:
+        extract_document_in_process(render_scanned_pdf(RECEIPT), time_limit_seconds=0.0)
+    assert err.value.kind == "timeout"
 
 
 def test_missing_tesseract_raises_ocr_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -93,4 +98,28 @@ def test_missing_tesseract_raises_ocr_unavailable(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(pytesseract, "image_to_data", not_installed)
     with pytest.raises(OcrUnavailable, match="brew install tesseract"):
-        extract_document(render_scanned_pdf(RECEIPT))
+        extract_document_in_process(render_scanned_pdf(RECEIPT))
+
+
+def test_corrupt_page_tree_is_unreadable_not_a_crash() -> None:
+    assert _rejection_kind(vector_heavy_pdf(10, kids=5)) == "unreadable"
+
+
+@needs_tesseract
+def test_cmyk_jpeg_is_read() -> None:
+    upright = render_photo_jpeg(RECEIPT, rotate_degrees=0, blur_radius=0, exif_orientation=None)
+    cmyk = io.BytesIO()
+    Image.open(io.BytesIO(upright)).convert("CMYK").save(cmyk, format="JPEG")
+    assert "38.76" in extract_document(cmyk.getvalue()).text
+
+
+def test_slow_to_render_pdf_is_cut_off_at_the_time_limit() -> None:
+    started = time.monotonic()
+    with pytest.raises(ExtractionRejected) as err:
+        extract_document(vector_heavy_pdf(20_000), time_limit_seconds=1.0)
+    assert err.value.kind == "timeout"
+    assert time.monotonic() - started < 10
+
+
+def test_pdf_embedded_image_bomb_is_rejected_before_render() -> None:
+    assert _rejection_kind(embedded_image_bomb_pdf(7_000)) == "too_large"  # 49 MP > 40 MP cap

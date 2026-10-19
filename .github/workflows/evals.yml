@@ -8,6 +8,13 @@ on:
       - "config/thresholds.yaml"
       - "src/receipt_sentinel/evals/golden/**"
       - "src/receipt_sentinel/evals/baseline.json"
+      # Extraction, validation and scoring decide what the model sees and how it is graded
+      - "src/receipt_sentinel/extract/**"
+      - "src/receipt_sentinel/validate/**"
+      - "src/receipt_sentinel/evals/scoring.py"
+      - "src/receipt_sentinel/evals/golden_fixture_text.py"
+      - "pyproject.toml"
+      - "uv.lock"
 permissions:
   contents: read
   pull-requests: write

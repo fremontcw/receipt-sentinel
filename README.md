@@ -188,6 +188,9 @@ shape of report a real prompt or model regression produces.
 
 **Demo (no API key):**
 
+Needs Tesseract for the scanned and photo fixtures: `brew install tesseract` (macOS) or
+`apt-get install tesseract-ocr` (Linux).
+
 ```bash
 make install
 make demo
