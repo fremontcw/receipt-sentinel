@@ -58,7 +58,7 @@ Goal of the current work: make this repo show a full "AI-native automation engin
 8. ~~Spec §7 step 6~~ done 2026-10-19 (plan `docs/superpowers/plans/2026-10-19-extract-and-validate.md`):
    `extract/` (PyMuPDF + Tesseract `--psm 6`, runs in a worker process killed at 30 s, caps per spec
    §4.1), `validate/` (sum, date window, ISO 4217; duplicates wait for step 8), 11 PDF/photo golden
-   fixtures, dataset v2, `POST /categorize/file`. Real v2 baseline 94.0% ($0.22/run). Photo deskew
+   fixtures, dataset v2, `POST /categorize/file`. Real v2 baseline 97.0% after deskew ($0.22/run; CI runs ~95.5%, model variance on synthetic_0032). Photo deskew
    landed 2026-10-19 (projection-profile, ±5°). Open: 7 deferred review minors listed in PR #4.
    Tesseract is now required for evals/demo (CI installs it). Steps 7–9 (ingest + allowlist,
    checklist, Docker) still to plan via `superpowers:writing-plans`.

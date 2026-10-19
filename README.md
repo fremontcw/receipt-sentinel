@@ -84,7 +84,7 @@ Harness loop:
 hand-written adversarial cases, and 11 file fixtures (text PDFs, scanned
 PDFs, tilted phone photos; `scripts/render_golden_fixtures.py`) that go
 through the extract layer, so the gate covers extraction too. Real-model
-baseline (`claude-sonnet-5`): 94.0%, every adversarial case passing, $0.22 per run. Zero `real_redacted` cases so far; the
+baseline (`claude-sonnet-5`): 97.0%, every adversarial case passing, $0.22 per run. Zero `real_redacted` cases so far; the
 author adds them via `scripts/redaction_checklist.md` and
 `sentinel evals promote`. Full sourcing, labeling, and known limitations are
 in [`src/receipt_sentinel/evals/golden/DATASET_CARD.md`](src/receipt_sentinel/evals/golden/DATASET_CARD.md).
