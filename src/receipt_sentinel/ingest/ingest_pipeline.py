@@ -40,6 +40,10 @@ from receipt_sentinel.validate.receipt_validation import ValidationResult, valid
 logger = logging.getLogger(__name__)
 
 MAX_SUBJECTS_PER_UNKNOWN_SENDER = 5
+# A receipt email carries one or two files; more is a newsletter or abuse, and each costs OCR
+# plus a model call
+MAX_ATTACHMENTS_PER_MESSAGE = 5
+OVER_ATTACHMENT_CAP = "over the per-message attachment cap"
 MAX_RAW_FROM_CHARS = 200
 OVER_MAX_MESSAGES = "over --max-messages"
 NOT_OPENED = "(not opened)"
@@ -133,21 +137,27 @@ async def ingest_messages(
             skipped.append(SkippedAttachment(raw.message_id, sender, NOT_OPENED, OVER_MAX_MESSAGES))
             continue
         processed += 1
-        await _ingest_allowed(raw, headers, sender, categorizer, receipts, skipped)
+        full = source.full_message(raw)
+        await _ingest_allowed(raw, full, headers, sender, categorizer, receipts, skipped)
     return IngestReport(tuple(receipts), tuple(skipped), _unknown_senders(unknown))
 
 
 async def _ingest_allowed(
     raw: RawMessage,
+    full: bytes,
     headers: MessageHeaders,
     sender: str,
     categorizer: _Categorizer,
     receipts: list[IngestedReceipt],
     skipped: list[SkippedAttachment],
 ) -> None:
-    message = parse_inbound_message(raw.raw, sender=sender)
+    message = parse_inbound_message(full, sender=sender)
     email_date = (raw.received_at or headers.received_at).date()
-    for attachment in message.attachments:
+    for extra in message.attachments[MAX_ATTACHMENTS_PER_MESSAGE:]:
+        skipped.append(
+            SkippedAttachment(raw.message_id, sender, extra.filename, OVER_ATTACHMENT_CAP)
+        )
+    for attachment in message.attachments[:MAX_ATTACHMENTS_PER_MESSAGE]:
         try:
             document = await asyncio.to_thread(extract_document, attachment.data)
             result = await categorize_receipt(

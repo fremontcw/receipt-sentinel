@@ -56,7 +56,13 @@ class RawMessage:
 
 
 class MessageSource(Protocol):
-    def list_messages(self, since: date) -> list[RawMessage]: ...
+    def list_messages(self, since: date) -> list[RawMessage]:
+        """Messages since a date; `raw` needs only the header block (enough to decide)."""
+        ...
+
+    def full_message(self, message: RawMessage) -> bytes:
+        """The complete RFC 822 bytes, fetched only for allowed senders."""
+        ...
 
 
 def parse_message_headers(raw: bytes) -> MessageHeaders:
@@ -83,12 +89,7 @@ def parse_inbound_message(raw: bytes, sender: str) -> InboundMessage:
         sender: The address the allowlist accepted (never re-derived from display names).
     """
     message = BytesParser(policy=policy.default).parsebytes(raw)
-    attachments = tuple(
-        _attachment(part)
-        for part in message.walk()
-        if not part.is_multipart()
-        and (part.get_filename() or part.get_content_maintype() != "text")
-    )
+    attachments = tuple(_attachment(part) for part in _receipt_candidate_parts(message))
     return InboundMessage(
         sender=sender,
         subject=str(message.get("Subject", "")),
@@ -97,10 +98,37 @@ def parse_inbound_message(raw: bytes, sender: str) -> InboundMessage:
     )
 
 
+def _receipt_candidate_parts(part: Message) -> list[Message]:
+    """Leaf parts that could be a receipt file, in message order.
+
+    Skips text bodies, inline images referenced by the HTML body (logos, product shots), and
+    never walks into an attached message/rfc822: a forwarded mail's parts belong to a sender
+    the allowlist never checked, so the forward stays one opaque attachment.
+    """
+    if part.get_content_type() == "message/rfc822":
+        return [part]
+    if part.is_multipart():
+        children = part.get_payload()
+        return [
+            leaf
+            for child in (children if isinstance(children, list) else [])
+            if isinstance(child, Message)
+            for leaf in _receipt_candidate_parts(child)
+        ]
+    inline_body_image = part.get_content_disposition() != "attachment" and part.get("Content-ID")
+    if inline_body_image or (part.get_content_maintype() == "text" and not part.get_filename()):
+        return []
+    return [part]
+
+
 def _attachment(part: Message) -> InboundAttachment:
     # Basename only: a filename is attacker-chosen text, never a path
     name = PurePosixPath((part.get_filename() or "").replace("\\", "/")).name
-    payload = part.get_payload(decode=True)
+    payload = (
+        part.as_bytes()
+        if part.get_content_type() == "message/rfc822"
+        else part.get_payload(decode=True)
+    )
     return InboundAttachment(
         filename=name or "attachment",
         declared_mime=part.get_content_type(),

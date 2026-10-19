@@ -29,3 +29,6 @@ class EmlDirectorySource:
             if parse_message_headers(raw).received_at.date() >= since:
                 messages.append(RawMessage(message_id=path.stem, raw=raw, received_at=None))
         return messages
+
+    def full_message(self, message: RawMessage) -> bytes:
+        return message.raw  # a local file is already whole

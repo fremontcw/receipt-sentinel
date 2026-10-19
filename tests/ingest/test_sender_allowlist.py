@@ -130,3 +130,21 @@ def test_semicolon_inside_a_quoted_envelope_cannot_start_a_fake_clause() -> None
     envelope = '"a;dmarc=pass header.from=shop.com x"@evil.io'
     header = f"mx.google.com; spf=pass smtp.mailfrom={envelope}; dmarc=fail header.from=shop.com"
     assert _decide("receipts@shop.com", [header]) == (False, "no DMARC pass from trusted server")
+
+
+def test_two_dmarc_clauses_are_rejected() -> None:
+    # Unquoted smtp.mailfrom with ';' can smuggle an extra dmarc clause ahead of the real one
+    header = (
+        "mx.google.com; spf=pass smtp.mailfrom=a;dmarc=pass header.from=shop.com;x@evil.com;"
+        " dmarc=fail header.from=shop.com"
+    )
+    assert _decide("receipts@shop.com", [header]) == (False, "no DMARC pass from trusted server")
+
+
+def test_topmost_authentication_results_must_be_from_the_trusted_server() -> None:
+    # If our server's verdict isn't on top, a lower "mx.google.com" header was sender-written
+    upstream = "relay.example; dmarc=none"
+    assert _decide("receipts@shop.com", [upstream, gmail_dmarc_pass("shop.com")]) == (
+        False,
+        "no DMARC pass from trusted server",
+    )

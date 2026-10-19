@@ -1,13 +1,13 @@
 from datetime import date
 
 import pytest
-from receipt_sentinel.ingest.ingest_pipeline import IngestReport, ingest_messages
 
 from receipt_sentinel.evals.eval_commands import REPO_ROOT, build_client
 from receipt_sentinel.evals.golden_case import GOLDEN_DIR, load_golden_cases
 from receipt_sentinel.evals.golden_fixture_text import extract_fixture_cases
 from receipt_sentinel.ingest import ingest_pipeline
 from receipt_sentinel.ingest.inbound_message import RawMessage
+from receipt_sentinel.ingest.ingest_pipeline import IngestReport, ingest_messages
 from receipt_sentinel.ingest.sender_allowlist import SenderAllowlist
 from receipt_sentinel.prompts.prompt_config import load_active_prompt
 from tests.ingest.email_builders import build_eml, gmail_dmarc_pass
@@ -26,6 +26,9 @@ class ListSource:
 
     def list_messages(self, since: date) -> list[RawMessage]:
         return self.messages
+
+    def full_message(self, message: RawMessage) -> bytes:
+        return message.raw
 
 
 def _fixture_bytes(case_id: str) -> bytes:
@@ -116,3 +119,10 @@ async def test_messages_beyond_max_are_skipped_not_processed() -> None:
 async def test_message_without_attachments_produces_nothing() -> None:
     report = await _ingest([_allowed_message([])])
     assert report == IngestReport(receipts=(), skipped=(), unknown_senders=())
+
+
+async def test_attachments_beyond_the_per_message_cap_are_skipped() -> None:
+    pdf = _fixture_bytes(PDF_CASE)
+    report = await _ingest([_allowed_message([(f"r{i}.pdf", pdf) for i in range(7)])])
+    assert len(report.receipts) == ingest_pipeline.MAX_ATTACHMENTS_PER_MESSAGE
+    assert [s.reason for s in report.skipped] == ["over the per-message attachment cap"] * 2

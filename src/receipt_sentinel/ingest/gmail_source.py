@@ -21,6 +21,8 @@ from receipt_sentinel.ingest.inbound_message import RawMessage
 
 GMAIL_SCOPES = ("https://www.googleapis.com/auth/gmail.readonly",)
 TOKEN_FILE_MODE = 0o600
+HTTP_UNAUTHORIZED = 401
+METADATA_HEADERS = ["From", "Subject", "Date", "Authentication-Results"]
 
 
 class GmailSetupError(RuntimeError):
@@ -52,7 +54,8 @@ class GmailService(Protocol):
 
 
 class GmailSource:
-    """Messages with attachments since a date, newest pages first, as raw bytes."""
+    """Messages with attachments since a date. Listing fetches headers only; a message's body
+    and attachments are downloaded only when the allowlist asks for them (full_message)."""
 
     def __init__(self, service: GmailService, *, page_limit: int = 5) -> None:
         self.service = service
@@ -60,25 +63,65 @@ class GmailSource:
 
     def list_messages(self, since: date) -> list[RawMessage]:
         messages = self.service.users().messages()
-        query = f"has:attachment after:{since:%Y/%m/%d}"
+        # Sent and draft mail carry no inbound Authentication-Results, so would only be noise
+        query = f"has:attachment after:{since:%Y/%m/%d} -in:sent -in:drafts"
         ids: list[str] = []
         page_token: str | None = None
         for _ in range(self.page_limit):
-            page = messages.list(userId="me", q=query, pageToken=page_token).execute()
+            page = _execute(messages.list(userId="me", q=query, pageToken=page_token))
             ids += [str(item["id"]) for item in _dicts(page.get("messages"))]
             page_token = str(page["nextPageToken"]) if page.get("nextPageToken") else None
             if page_token is None:
                 break
-        return [self._fetch(messages, message_id) for message_id in ids]
+        return [self._fetch_headers(messages, message_id) for message_id in ids]
+
+    def full_message(self, message: RawMessage) -> bytes:
+        request = (
+            self.service.users().messages().get(userId="me", id=message.message_id, format="raw")
+        )
+        encoded = str(_execute(request)["raw"])
+        return base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
 
     @staticmethod
-    def _fetch(messages: _MessagesResource, message_id: str) -> RawMessage:
-        reply = messages.get(userId="me", id=message_id, format="raw").execute()
-        encoded = str(reply["raw"])
-        raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+    def _fetch_headers(messages: _MessagesResource, message_id: str) -> RawMessage:
+        reply = _execute(
+            messages.get(
+                userId="me", id=message_id, format="metadata", metadataHeaders=METADATA_HEADERS
+            )
+        )
+        payload = reply.get("payload")
+        headers = _dicts(payload.get("headers")) if isinstance(payload, dict) else []
+        # Rebuilt as a header block in Gmail's order (the order the allowlist's DMARC check
+        # relies on); folding or stray CR/LF in a value can't start a new header
+        block = "".join(
+            f"{_one_line(h.get('name'))}: {_one_line(h.get('value'))}\r\n" for h in headers
+        )
         received_ms = int(str(reply.get("internalDate", "0")))
         received_at = datetime.fromtimestamp(received_ms / 1000, tz=UTC) if received_ms else None
-        return RawMessage(message_id=message_id, raw=raw, received_at=received_at)
+        return RawMessage(message_id, (block + "\r\n").encode(), received_at)
+
+
+def _execute(request: _Request) -> dict[str, object]:
+    try:
+        return request.execute()
+    except Exception as err:
+        if _is_auth_failure(err):
+            raise GmailAuthExpired() from err
+        raise
+
+
+def _is_auth_failure(err: Exception) -> bool:
+    # Revoked mid-run: google-auth refreshes on a 401 and fails with RefreshError
+    from google.auth.exceptions import RefreshError
+    from googleapiclient.errors import HttpError
+
+    return isinstance(err, RefreshError) or (
+        isinstance(err, HttpError) and getattr(err.resp, "status", None) == HTTP_UNAUTHORIZED
+    )
+
+
+def _one_line(value: object) -> str:
+    return " ".join(str(value or "").split())
 
 
 def build_gmail_service(credentials_path: Path, token_path: Path, *, reauth: bool) -> GmailService:
@@ -100,7 +143,12 @@ def build_gmail_service(credentials_path: Path, token_path: Path, *, reauth: boo
         raise GmailSetupError("Gmail support is not installed: uv sync --extra gmail") from err
     credentials = None
     if token_path.exists() and not reauth:
-        credentials = Credentials.from_authorized_user_file(str(token_path), list(GMAIL_SCOPES))
+        try:
+            credentials = Credentials.from_authorized_user_file(str(token_path), list(GMAIL_SCOPES))
+        except ValueError as err:  # also JSONDecodeError: corrupt, or wrong fields
+            raise GmailSetupError(
+                f"{token_path} is unreadable: run sentinel ingest --gmail --reauth"
+            ) from err
     if credentials is not None and credentials.expired and credentials.refresh_token:
         try:
             credentials.refresh(Request())

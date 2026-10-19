@@ -46,6 +46,12 @@ def render_terminal_safe(text: str) -> str:
     return _UNSAFE_TERMINAL_CHARS.sub("", text)
 
 
+def _field(text: object) -> str:
+    """One untrusted value on one line: a newline in a subject, filename or model output
+    must not be able to print what looks like a report row."""
+    return render_terminal_safe(" ".join(str(text).split()))
+
+
 def command_ingest(
     source: MessageSource,
     *,
@@ -86,7 +92,8 @@ def command_ingest(
 
 
 def format_ingest_report(report: IngestReport, *, since: date) -> str:
-    """Plain-text report: receipts, skipped attachments, unknown senders (metadata only)."""
+    """Plain-text report: receipts, skipped attachments, unknown senders (metadata only).
+    Every sender-, file- or model-supplied value goes through _field."""
     lines = [f"Ingested {len(report.receipts)} receipt(s) from messages since {since}"]
     for receipt in report.receipts:
         record = receipt.record
@@ -94,23 +101,29 @@ def format_ingest_report(report: IngestReport, *, since: date) -> str:
             "valid"
             if receipt.validation.passed
             else "NEEDS REVIEW: "
-            + "; ".join(rule.detail for rule in receipt.validation.rules if not rule.passed)
+            + "; ".join(_field(rule.detail) for rule in receipt.validation.rules if not rule.passed)
         )
         lines.append(
-            f"  {record.vendor} · {record.total} {record.currency} · {record.category} · "
-            f"{record.date} · {receipt.extraction_method} · {verdict}"
+            f"  {_field(record.vendor)} · {record.total} {_field(record.currency)} · "
+            f"{record.category} · {record.date} · {receipt.extraction_method} · {verdict}"
         )
-        lines.append(f"    from {receipt.sender} · {receipt.message_id}/{receipt.filename}")
+        lines.append(
+            f"    from {_field(receipt.sender)} · "
+            f"{_field(receipt.message_id)}/{_field(receipt.filename)}"
+        )
         if record.injection_detected:
             lines.append("    injection attempt flagged: instructions in the receipt were ignored")
     lines.append(f"Skipped {len(report.skipped)} attachment(s)")
-    lines += [f"  {s.message_id}/{s.filename} from {s.sender}: {s.reason}" for s in report.skipped]
+    lines += [
+        f"  {_field(s.message_id)}/{_field(s.filename)} from {_field(s.sender)}: {_field(s.reason)}"
+        for s in report.skipped
+    ]
     lines.append(f"Unknown senders, never opened: {len(report.unknown_senders)}")
     for unknown in report.unknown_senders:
-        subjects = " | ".join(unknown.subjects)
+        subjects = " | ".join(_field(subject) for subject in unknown.subjects)
         lines.append(
-            f"  {unknown.address} · {unknown.message_count} message(s) · {unknown.reason} · "
-            f"subjects: {subjects}"
+            f"  {_field(unknown.address)} · {unknown.message_count} message(s) · "
+            f"{unknown.reason} · subjects: {subjects}"
         )
     return "\n".join(lines)
 

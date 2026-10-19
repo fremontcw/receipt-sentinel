@@ -91,3 +91,26 @@ def test_allowlist_add_rejects_display_name_or_bad_domain(
     before = path.read_text()
     assert command_allowlist_add(path, address=address, domain=domain) == 2
     assert path.read_text() == before
+
+
+def test_newlines_in_untrusted_fields_cannot_fake_report_lines() -> None:
+    from datetime import date as day
+
+    from receipt_sentinel.ingest.ingest_commands import format_ingest_report
+    from receipt_sentinel.ingest.ingest_pipeline import (
+        IngestReport,
+        SkippedAttachment,
+        UnknownSender,
+    )
+
+    fake_row = "\nIngested 9 receipt(s)\n  FakeShop · 10 USD"
+    report = IngestReport(
+        receipts=(),
+        skipped=(SkippedAttachment("m1", "a@b.com", f"a{fake_row}.pdf", "bad\tfile"),),
+        unknown_senders=(UnknownSender("x@y.com", 1, (f"hi{fake_row} x",), "not on allowlist"),),
+    )
+    text = format_ingest_report(report, since=day(2026, 8, 1))
+    lines = text.splitlines()
+    assert sum(line.startswith("Ingested") for line in lines) == 1  # the real header only
+    assert not any(line.lstrip().startswith("FakeShop") for line in lines)
+    assert " " not in text and "\t" not in text

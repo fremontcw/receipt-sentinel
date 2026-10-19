@@ -64,8 +64,9 @@ def parse_single_sender(raw_from: str) -> str | None:
 
 
 def decide_sender(headers: MessageHeaders, allowlist: SenderAllowlist) -> SenderDecision:
-    """Allowed only when the From address (or its exact domain) is listed AND our receiving
-    server recorded a DMARC pass for that domain."""
+    """Allowed only when the From address (or its exact domain) is listed AND the topmost
+    Authentication-Results header, from our receiving server, has exactly one dmarc clause:
+    a pass for that domain."""
     sender = parse_single_sender(headers.raw_from)
     if sender is None:
         return SenderDecision(False, None, "malformed From")
@@ -84,26 +85,30 @@ def decide_sender(headers: MessageHeaders, allowlist: SenderAllowlist) -> Sender
 def _trusted_dmarc_pass(
     authentication_results: tuple[str, ...], domain: str, allowlist: SenderAllowlist
 ) -> bool:
-    # Receiving servers prepend their verdict, so the topmost header from our server is the
-    # real one; anything below it could have been written by the sender
-    for result in authentication_results:
-        clauses = _structural_text(result).split(";")
-        authserv_id = (clauses[0].split() or [""])[0].lower()
-        if authserv_id != allowlist.trusted_authserv_id.lower():
-            continue
-        return _dmarc_clause_passes(clauses[1:], domain)
-    return False
+    # Our receiving server prepends its verdict, so it must be the topmost header; anything
+    # below it, even one claiming our server's name, could have been written by the sender
+    if not authentication_results:
+        return False
+    clauses = _structural_text(authentication_results[0]).split(";")
+    authserv_id = (clauses[0].split() or [""])[0].lower()
+    if authserv_id != allowlist.trusted_authserv_id.lower():
+        return False
+    return _dmarc_clause_passes(clauses[1:], domain)
 
 
 def _dmarc_clause_passes(clauses: list[str], domain: str) -> bool:
-    for clause in clauses:
-        tokens = clause.split()
-        if not tokens or not tokens[0].lower().startswith("dmarc="):
-            continue
-        properties = dict(token.split("=", 1) for token in tokens[1:] if "=" in token)
-        header_from = properties.get("header.from", "").lower()
-        return tokens[0][len("dmarc=") :].lower() == "pass" and header_from == domain
-    return False
+    dmarc_clauses = [
+        tokens
+        for tokens in (c.split() for c in clauses)
+        if tokens and tokens[0].lower().startswith("dmarc=")
+    ]
+    # More than one means sender text (e.g. an unquoted smtp.mailfrom) forged a clause
+    if len(dmarc_clauses) != 1:
+        return False
+    tokens = dmarc_clauses[0]
+    properties = dict(token.split("=", 1) for token in tokens[1:] if "=" in token)
+    header_from = properties.get("header.from", "").lower()
+    return tokens[0][len("dmarc=") :].lower() == "pass" and header_from == domain
 
 
 def _structural_text(header: str) -> str:

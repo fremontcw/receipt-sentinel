@@ -45,3 +45,42 @@ def test_filename_path_is_stripped() -> None:
 def test_body_text_is_not_an_attachment() -> None:
     raw = build_eml("a@shop.com")
     assert parse_inbound_message(raw, sender="a@shop.com").attachments == ()
+
+
+def _related_receipt_with_inline_logo_and_forward() -> bytes:
+    from email.message import EmailMessage
+
+    message = EmailMessage()
+    message["From"] = "a@shop.com"
+    message["Subject"] = "Receipt"
+    message.set_content("text")
+    message.add_alternative("<html><img src='cid:logo'></html>", subtype="html")
+    html = message.get_payload()[1]
+    html.add_related(b"\x89PNG\r\n\x1a\nlogo", maintype="image", subtype="png", cid="<logo>")
+    forwarded = EmailMessage()
+    forwarded["From"] = "other@unknown.example"
+    forwarded.add_attachment(
+        b"%PDF-1.7 inner", maintype="application", subtype="pdf", filename="inner.pdf"
+    )
+    message.add_attachment(forwarded)
+    message.add_attachment(
+        b"%PDF-1.7 outer", maintype="application", subtype="pdf", filename="receipt.pdf"
+    )
+    return message.as_bytes()
+
+
+def test_inline_images_and_forwarded_message_parts_are_not_receipts() -> None:
+    names = [
+        a.filename
+        for a in parse_inbound_message(
+            _related_receipt_with_inline_logo_and_forward(), "a@shop.com"
+        ).attachments
+    ]
+    assert "receipt.pdf" in names
+    assert "inner.pdf" not in names  # never walk into a forwarded message
+    assert all(
+        a.declared_mime != "image/png"
+        for a in parse_inbound_message(
+            _related_receipt_with_inline_logo_and_forward(), "a@shop.com"
+        ).attachments
+    )
