@@ -250,6 +250,17 @@ that domain. That check is on the server's own header, because a `From` line is 
 anyone can type. Everything else is reported as metadata (address, count, subjects),
 and its attachments are never opened. Ingest prints a report and stores nothing.
 
+**Ingest from your Gmail (read-only, optional):**
+
+1. In Google Cloud, enable the Gmail API, create an OAuth client of type *Desktop app*,
+   and save its JSON as `credentials.json` at the repo root. It's gitignored.
+2. `uv sync --extra gmail`
+3. `uv run sentinel ingest --gmail --since 2026-08-01 --max-messages 5`
+
+The first run opens a browser to sign in. The scope is `gmail.readonly` only, and the
+token is saved to `token.json` (gitignored, owner-only). If it expires, add `--reauth`.
+Gmail never runs in CI; tests use a fake Gmail service.
+
 **Same model on Azure (Microsoft Foundry):**
 
 ```bash

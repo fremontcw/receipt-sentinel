@@ -33,6 +33,8 @@ from receipt_sentinel.evals.eval_commands import (
 )
 from receipt_sentinel.extract.extracted_document import OcrUnavailable
 from receipt_sentinel.ingest.eml_directory_source import EmlDirectorySource
+from receipt_sentinel.ingest.gmail_source import GmailSetupError, GmailSource, build_gmail_service
+from receipt_sentinel.ingest.inbound_message import MessageSource
 from receipt_sentinel.ingest.ingest_commands import command_allowlist_add, command_ingest
 from receipt_sentinel.telemetry import configure_tracing
 
@@ -116,7 +118,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _add_ingest_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
     ingest = top.add_parser("ingest", help="read receipt emails (allowlisted senders only)")
-    ingest.add_argument("--eml", type=Path, required=True, help="directory of .eml files")
+    source = ingest.add_mutually_exclusive_group(required=True)
+    source.add_argument("--eml", type=Path, help="directory of .eml files")
+    source.add_argument("--gmail", action="store_true", help="your Gmail, read-only")
+    ingest.add_argument("--reauth", action="store_true", help="with --gmail: sign in again")
+    ingest.add_argument("--gmail-credentials", type=Path, default=REPO_ROOT / "credentials.json")
+    ingest.add_argument("--gmail-token", type=Path, default=REPO_ROOT / "token.json")
     ingest.add_argument(
         "--since",
         type=date.fromisoformat,
@@ -141,8 +148,15 @@ def _add_ingest_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser
 def _dispatch_ingest(args: argparse.Namespace) -> int:
     if args.group == "allowlist":
         return command_allowlist_add(args.allowlist, address=args.address, domain=args.domain)
+    source: MessageSource = (
+        GmailSource(
+            build_gmail_service(args.gmail_credentials, args.gmail_token, reauth=args.reauth)
+        )
+        if args.gmail
+        else EmlDirectorySource(args.eml)
+    )
     return command_ingest(
-        EmlDirectorySource(args.eml),
+        source,
         allowlist_path=args.allowlist,
         since=args.since,
         fake=args.fake,
@@ -152,7 +166,7 @@ def _dispatch_ingest(args: argparse.Namespace) -> int:
 
 
 # Exit 1 means a CRITICAL regression; 2 means the run could not happen at all (provider
-# rejected the request, or OCR is not installed).
+# rejected the request, OCR is not installed, or Gmail sign-in needs attention).
 EXIT_PROVIDER_REJECTED = 2
 
 
@@ -166,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return EXIT_PROVIDER_REJECTED
-    except OcrUnavailable as err:
+    except (OcrUnavailable, GmailSetupError) as err:
         print(str(err), file=sys.stderr)
         return EXIT_PROVIDER_REJECTED
 

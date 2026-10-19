@@ -24,6 +24,8 @@ dev = [
     "fastapi>=0.143.3",
     "httpx>=0.28.1",
     "python-multipart>=0.0.32",
+    "google-api-python-client>=2.201.0",
+    "google-auth-oauthlib>=1.5.0",
 ]
 telemetry = [
     "opentelemetry-exporter-otlp-proto-http>=1.25",
@@ -33,6 +35,10 @@ api = [
     "fastapi>=0.143.3",
     "python-multipart>=0.0.32",
     "uvicorn>=0.54.0",
+]
+gmail = [
+    "google-api-python-client>=2.201.0",
+    "google-auth-oauthlib>=1.5.0",
 ]
 
 [project.scripts]
@@ -66,12 +72,16 @@ strict = true
 packages = ["receipt_sentinel"]
 mypy_path = "src"
 
-# PyMuPDF ships partial annotations: many methods are untyped. Allow calling them only in the
-# modules that wrap it; everything else stays fully strict.
+# PyMuPDF and google-auth ship partial annotations. Allow calling their untyped methods only
+# in the modules that wrap them; everything else stays fully strict.
 [[tool.mypy.overrides]]
-module = ["receipt_sentinel.extract.document_extractor", "receipt_sentinel.evals.synthetic_fixture_renderer"]
+module = [
+    "receipt_sentinel.extract.document_extractor",
+    "receipt_sentinel.evals.synthetic_fixture_renderer",
+    "receipt_sentinel.ingest.gmail_source",
+]
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
-module = ["pytesseract"]
+module = ["pytesseract", "googleapiclient.*", "google_auth_oauthlib.*"]
 ignore_missing_imports = true
