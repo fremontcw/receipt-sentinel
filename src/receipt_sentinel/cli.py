@@ -21,6 +21,7 @@ from pathlib import Path
 import anthropic
 
 from receipt_sentinel.categorize.anthropic_llm_client import DEFAULT_MODEL_ID
+from receipt_sentinel.checklist.receipt_store import DEFAULT_STORE_PATH
 from receipt_sentinel.evals.dashboard import command_build_dashboard
 from receipt_sentinel.evals.eval_commands import (
     REPO_ROOT,
@@ -143,11 +144,14 @@ def _add_ingest_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser
     target.add_argument("address", nargs="?", help="exact sender address")
     target.add_argument("--domain", help="exact sender domain (subdomains not included)")
     add.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST_PATH)
+    add.add_argument("--db", type=Path, default=DEFAULT_STORE_PATH, help="local receipt store")
 
 
 def _dispatch_ingest(args: argparse.Namespace) -> int:
     if args.group == "allowlist":
-        return command_allowlist_add(args.allowlist, address=args.address, domain=args.domain)
+        return command_allowlist_add(
+            args.allowlist, address=args.address, domain=args.domain, store_path=args.db
+        )
     source: MessageSource = (
         GmailSource(
             build_gmail_service(args.gmail_credentials, args.gmail_token, reauth=args.reauth)

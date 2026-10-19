@@ -68,5 +68,6 @@ def test_cli_ingest_demo_inbox_fake(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_cli_allowlist_add_rejects_display_name(tmp_path: Path) -> None:
     path = tmp_path / "allowlist.yaml"
-    assert main(["allowlist", "add", "Shop <a@b.com>", "--allowlist", str(path)]) == 2
-    assert main(["allowlist", "add", "--domain", "shop.com", "--allowlist", str(path)]) == 0
+    db = ["--db", str(tmp_path / "store.db")]
+    assert main(["allowlist", "add", "Shop <a@b.com>", "--allowlist", str(path), *db]) == 2
+    assert main(["allowlist", "add", "--domain", "shop.com", "--allowlist", str(path), *db]) == 0
