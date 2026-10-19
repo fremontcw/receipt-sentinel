@@ -22,6 +22,9 @@ baseline, and blocks the merge on a real regression.
 
 ```
 src/receipt_sentinel/
+├── ingest/             .eml directory or Gmail (read-only) → sender allowlist + DMARC → attachments
+├── extract/            PDF/photo → text (PyMuPDF, Tesseract OCR, deskew; killable worker, caps)
+├── validate/           Deterministic rules: items sum to total, date window, ISO 4217 currency
 ├── categorize/         LLM call: receipt text → ReceiptRecord (strict JSON schema, no tools)
 │   ├── categorize_receipt.py
 │   ├── llm_client.py           LlmClient protocol
@@ -42,10 +45,10 @@ mcp_run_history_server/  C# MCP server: lets an agent ask "what regressed?" (rea
     └── eval_commands.py   CLI glue: run / promote-baseline / promote
 ```
 
-The ingest, extract, validate, and checklist layers described in the design
-spec are not built yet — see [Roadmap](#roadmap). Today the golden dataset
-supplies pre-extracted receipt text directly, so the harness can gate the
-one component that exists: the LLM call itself.
+Feature path: `email → allowlist (headers only) → attachment → extract → categorize
+→ validate → report`. The checklist layer (user-confirmed persistence) is next; see
+[Roadmap](#roadmap). The golden set feeds both text and file fixtures, so the harness
+gates extraction as well as the LLM call.
 
 Harness loop:
 
@@ -233,6 +236,34 @@ the golden fixtures in `src/receipt_sentinel/evals/golden/fixtures/`; the phone 
 the prompt-injection receipt is the good one. OCR needs Tesseract:
 `brew install tesseract` (macOS) or `apt-get install tesseract-ocr` (Linux).
 
+**Ingest receipt emails (allowlisted senders only):**
+
+```bash
+make ingest-demo     # keyless: 4 demo emails in examples/demo_inbox/
+uv run sentinel ingest --eml path/to/emails --since 2026-08-01   # real model
+uv run sentinel allowlist add receipts@shop.com   # or: --domain shop.com
+```
+
+The demo reads two receipts from an allowlisted sender: a PDF, and a phone photo
+whose prompt-injection text comes back flagged. It also lists two senders that were
+never opened: an unknown shop, and an attacker whose display name impersonates the
+allowlisted address. A sender is trusted only if its exact address or exact domain is
+in `config/allowlist.yaml` *and* the receiving server (Gmail) recorded a DMARC pass for
+that domain. That check is on the server's own header, because a `From` line is just text
+anyone can type. Everything else is reported as metadata (address, count, subjects),
+and its attachments are never opened. Ingest prints a report and stores nothing.
+
+**Ingest from your Gmail (read-only, optional):**
+
+1. In Google Cloud, enable the Gmail API, create an OAuth client of type *Desktop app*,
+   and save its JSON as `credentials.json` at the repo root. It's gitignored.
+2. `uv sync --extra gmail`
+3. `uv run sentinel ingest --gmail --since 2026-08-01 --max-messages 5`
+
+The first run opens a browser to sign in. The scope is `gmail.readonly` only, and the
+token is saved to `token.json` (gitignored, owner-only). If it expires, add `--reauth`.
+Gmail never runs in CI; tests use a fake Gmail service.
+
 **Same model on Azure (Microsoft Foundry):**
 
 ```bash
@@ -338,7 +369,6 @@ Per the design spec's build order (steps 1–5 are this harness; 6–9 are the
 feature it will eventually gate more of):
 
 6. ~~Extract layer, validate layer, PDF/image golden fixtures~~ done.
-7. Ingest: `.eml` fixture source, then the Gmail API source with a sender
-   allowlist.
+7. ~~Ingest: `.eml` source, Gmail (read-only) source, sender allowlist~~ done.
 8. Checklist propose/confirm (SQLite, user-confirmed persistence only).
 9. Dockerfile and a 3-minute walkthrough.

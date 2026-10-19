@@ -1,7 +1,8 @@
 """cli
 
 Command-line entry for Receipt Sentinel:
-`sentinel evals run|compare-models|promote-baseline|promote`.
+`sentinel evals run|compare-models|promote-baseline|promote`, `sentinel ingest`,
+`sentinel allowlist add`.
 
 Status:
     None
@@ -14,6 +15,7 @@ Todo:
 import argparse
 import os
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 import anthropic
@@ -21,6 +23,7 @@ import anthropic
 from receipt_sentinel.categorize.anthropic_llm_client import DEFAULT_MODEL_ID
 from receipt_sentinel.evals.dashboard import command_build_dashboard
 from receipt_sentinel.evals.eval_commands import (
+    REPO_ROOT,
     EvalPaths,
     command_compare_models,
     command_evals_run,
@@ -29,12 +32,20 @@ from receipt_sentinel.evals.eval_commands import (
     command_record_skip,
 )
 from receipt_sentinel.extract.extracted_document import OcrUnavailable
+from receipt_sentinel.ingest.eml_directory_source import EmlDirectorySource
+from receipt_sentinel.ingest.gmail_source import GmailSetupError, GmailSource, build_gmail_service
+from receipt_sentinel.ingest.inbound_message import MessageSource
+from receipt_sentinel.ingest.ingest_commands import command_allowlist_add, command_ingest
 from receipt_sentinel.telemetry import configure_tracing
+
+DEFAULT_INGEST_DAYS = 30
+DEFAULT_ALLOWLIST_PATH = REPO_ROOT / "config" / "allowlist.yaml"
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sentinel")
     top = parser.add_subparsers(dest="group", required=True)
+    _add_ingest_parsers(top)
     evals = top.add_parser("evals", help="regression harness").add_subparsers(
         dest="command", required=True
     )
@@ -105,8 +116,57 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_ingest_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    ingest = top.add_parser("ingest", help="read receipt emails (allowlisted senders only)")
+    source = ingest.add_mutually_exclusive_group(required=True)
+    source.add_argument("--eml", type=Path, help="directory of .eml files")
+    source.add_argument("--gmail", action="store_true", help="your Gmail, read-only")
+    ingest.add_argument("--reauth", action="store_true", help="with --gmail: sign in again")
+    ingest.add_argument("--gmail-credentials", type=Path, default=REPO_ROOT / "credentials.json")
+    ingest.add_argument("--gmail-token", type=Path, default=REPO_ROOT / "token.json")
+    ingest.add_argument(
+        "--since",
+        type=date.fromisoformat,
+        default=date.today() - timedelta(days=DEFAULT_INGEST_DAYS),
+        help=f"earliest message date, YYYY-MM-DD (default: {DEFAULT_INGEST_DAYS} days ago)",
+    )
+    ingest.add_argument("--fake", action="store_true", help="keyless golden-label model")
+    ingest.add_argument("--provider", choices=("anthropic", "azure"), default="anthropic")
+    ingest.add_argument("--max-messages", type=int, default=50, help="model spend bound")
+    ingest.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST_PATH)
+
+    allowlist = top.add_parser("allowlist", help="trusted receipt senders").add_subparsers(
+        dest="command", required=True
+    )
+    add = allowlist.add_parser("add", help="allow one exact address or exact domain")
+    target = add.add_mutually_exclusive_group(required=True)
+    target.add_argument("address", nargs="?", help="exact sender address")
+    target.add_argument("--domain", help="exact sender domain (subdomains not included)")
+    add.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST_PATH)
+
+
+def _dispatch_ingest(args: argparse.Namespace) -> int:
+    if args.group == "allowlist":
+        return command_allowlist_add(args.allowlist, address=args.address, domain=args.domain)
+    source: MessageSource = (
+        GmailSource(
+            build_gmail_service(args.gmail_credentials, args.gmail_token, reauth=args.reauth)
+        )
+        if args.gmail
+        else EmlDirectorySource(args.eml)
+    )
+    return command_ingest(
+        source,
+        allowlist_path=args.allowlist,
+        since=args.since,
+        fake=args.fake,
+        provider=args.provider,
+        max_messages=args.max_messages,
+    )
+
+
 # Exit 1 means a CRITICAL regression; 2 means the run could not happen at all (provider
-# rejected the request, or OCR is not installed).
+# rejected the request, OCR is not installed, or Gmail sign-in needs attention).
 EXIT_PROVIDER_REJECTED = 2
 
 
@@ -120,12 +180,14 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return EXIT_PROVIDER_REJECTED
-    except OcrUnavailable as err:
+    except (OcrUnavailable, GmailSetupError) as err:
         print(str(err), file=sys.stderr)
         return EXIT_PROVIDER_REJECTED
 
 
 def _dispatch(args: argparse.Namespace) -> int:
+    if args.group in ("ingest", "allowlist"):
+        return _dispatch_ingest(args)
     if args.command == "dashboard":
         return command_build_dashboard(args.history, args.out, repo_url=args.repo_url)
     if args.command == "record-skip":

@@ -1,0 +1,9 @@
+# config/allowlist.yaml — senders whose receipt attachments may be opened (spec §4.1).
+# Edit with `sentinel allowlist add ADDRESS` or `sentinel allowlist add --domain DOMAIN`.
+# addresses: exact From addresses (preferred). domains: exact From domains only; a
+#   subdomain must be listed on its own.
+# trusted_authserv_id: the receiving server whose Authentication-Results header is
+#   believed; an allowlisted sender also needs its DMARC pass for the From domain.
+addresses: []
+domains: []
+trusted_authserv_id: mx.google.com
