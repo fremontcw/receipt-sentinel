@@ -1,6 +1,8 @@
 # Source guide pages (copyrighted) and raw, unredacted receipts — never commit
 *.pdf
 !docs/**/*.pdf
+# Synthetic, rendered golden fixtures (no real receipts): these must ship
+!src/receipt_sentinel/evals/golden/fixtures/*.pdf
 _raw_receipts/
 
 # Secrets

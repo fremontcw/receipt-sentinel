@@ -55,7 +55,13 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    98.2%, $0.19/run; key is a Default-workspace key, in GitHub secrets + macOS keychain `anthropic-api-key`):
    ~20 redacted real receipts per `scripts/redaction_checklist.md`; `docs/sample_report.png`; optional
    `SLACK_WEBHOOK_URL` secret.
-8. Spec §7 steps 6–9 (extract layer, validate, ingest + allowlist, checklist, Docker) via `superpowers:writing-plans`.
+8. ~~Spec §7 step 6~~ done 2026-10-19 (plan `docs/superpowers/plans/2026-10-19-extract-and-validate.md`):
+   `extract/` (PyMuPDF + Tesseract `--psm 6`, runs in a worker process killed at 30 s, caps per spec
+   §4.1), `validate/` (sum, date window, ISO 4217; duplicates wait for step 8), 11 PDF/photo golden
+   fixtures, dataset v2, `POST /categorize/file`. Real v2 baseline 94.0% ($0.22/run). Open: photo
+   deskew (xfail test + `fixture_photo_0002` fails), 7 deferred review minors listed in the PR.
+   Tesseract is now required for evals/demo (CI installs it). Steps 7–9 (ingest + allowlist,
+   checklist, Docker) still to plan via `superpowers:writing-plans`.
 
 **Environment:**
 

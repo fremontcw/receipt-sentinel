@@ -1,12 +1,18 @@
+import shutil
+
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 
 from receipt_sentinel.categorize.categorize_api import (
     KEYLESS_UNKNOWN_RECEIPT,
     SAMPLE_CASES,
     build_app,
 )
-from receipt_sentinel.evals.golden_case import load_golden_cases
+from receipt_sentinel.evals.golden_case import GOLDEN_DIR, GoldenCase, load_golden_cases
+from receipt_sentinel.extract.extracted_document import MAX_ATTACHMENT_BYTES
+
+needs_tesseract = pytest.mark.skipif(shutil.which("tesseract") is None, reason="needs tesseract")
 
 
 @pytest.fixture
@@ -43,3 +49,45 @@ def test_docs_offer_every_sample_receipt(keyless_client: TestClient) -> None:
     body = spec["paths"]["/categorize"]["post"]["requestBody"]["content"]["application/json"]
     assert set(body["examples"]) == set(SAMPLE_CASES)
     assert keyless_client.get("/health").json() == {"status": "ok", "model_id": "fake"}
+
+
+def _fixture_case(case_id: str) -> GoldenCase:
+    return {c.id: c for c in load_golden_cases()}[case_id]
+
+
+def _upload(client: TestClient, data: bytes, name: str = "receipt.pdf") -> Response:
+    return client.post("/categorize/file", files={"file": (name, data)})
+
+
+def test_keyless_upload_of_native_pdf_fixture_extracts_and_categorizes(
+    keyless_client: TestClient,
+) -> None:
+    case = _fixture_case("fixture_pdf_native_0001_dining_easy")
+    assert case.fixture is not None
+    response = _upload(keyless_client, (GOLDEN_DIR / case.fixture).read_bytes())
+    assert response.status_code == 200
+    body = response.json()
+    assert body["extraction_method"] == "native" and body["page_count"] == 1
+    assert body["record"]["total"] == str(case.expected.total)
+
+
+@needs_tesseract
+def test_keyless_upload_of_photo_fixture_uses_ocr(keyless_client: TestClient) -> None:
+    case = _fixture_case("fixture_photo_adversarial_0001_override")
+    assert case.fixture is not None
+    response = _upload(keyless_client, (GOLDEN_DIR / case.fixture).read_bytes(), "photo.jpg")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["extraction_method"] == "ocr" and body["ocr_confidence"] > 0
+    assert body["record"]["injection_detected"] is True
+
+
+def test_html_named_pdf_is_unsupported_media_type(keyless_client: TestClient) -> None:
+    response = _upload(keyless_client, b"<html><script>alert(1)</script>")
+    assert response.status_code == 415
+    assert "PDF" in response.json()["detail"]
+
+
+def test_upload_over_ten_megabytes_is_too_large(keyless_client: TestClient) -> None:
+    response = _upload(keyless_client, b"%PDF-" + b"\0" * MAX_ATTACHMENT_BYTES)
+    assert response.status_code == 413

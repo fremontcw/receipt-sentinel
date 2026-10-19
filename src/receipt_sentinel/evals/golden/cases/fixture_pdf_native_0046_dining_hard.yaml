@@ -1,0 +1,39 @@
+id: fixture_pdf_native_0046_dining_hard
+difficulty: hard
+source: synthetic
+notes: PDF with a text layer; rendered from synthetic_0046_dining_hard
+email_date: '2026-08-23'
+receipt_text: 'BLUE BOTTLE COFFEE
+
+  08/22/2026
+
+  Latte                   €   39.57
+
+  Miso soup               €    1.61
+
+  Burrito bowl            €    5.76
+
+  Salmon roll             €    8.75
+
+  TOTAL                   €   55.69
+
+  '
+expected:
+  vendor: Blue Bottle Coffee
+  total: '55.69'
+  currency: EUR
+  date: '2026-08-22'
+  category: dining
+  line_items:
+  - description: Latte
+    amount: '39.57'
+  - description: Miso soup
+    amount: '1.61'
+  - description: Burrito bowl
+    amount: '5.76'
+  - description: Salmon roll
+    amount: '8.75'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
+fixture: fixtures/fixture_pdf_native_0046_dining_hard.pdf

@@ -12,6 +12,7 @@ Todo:
 """
 
 import asyncio
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from receipt_sentinel.categorize.categorize_receipt import ParseFailure, categorize_receipt
@@ -83,6 +84,7 @@ async def run_evals(
     dataset_version: str,
     git_sha: str,
     run_id: str | None = None,
+    extract_errors: Mapping[str, str] | None = None,
 ) -> EvalRun:
     """Score every golden case concurrently, enforcing the per-run cost ceiling.
 
@@ -96,6 +98,8 @@ async def run_evals(
         dataset_version: Golden dataset version recorded on the run.
         git_sha: Commit under test, recorded on the run.
         run_id: Explicit run id, or a generated one when omitted.
+        extract_errors: Case id → reason for fixture cases whose file could not be
+            extracted. They are scored as `extract` failures without a model call.
 
     Returns:
         The completed EvalRun, with status PROVIDER_UNSTABLE when provider errors exceed
@@ -109,6 +113,9 @@ async def run_evals(
 
     async def guarded(case: GoldenCase) -> CaseScore:
         nonlocal spent
+        if extract_errors and case.id in extract_errors:
+            # The pipeline broke before the model: a real failure, but nothing to pay for
+            return errored_score(case, "extract", None, pricing)
         async with semaphore:
             score = await _score_one(case, prompt, client, model_id, pricing)
             spent += score.cost_usd

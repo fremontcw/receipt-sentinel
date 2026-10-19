@@ -49,6 +49,7 @@ from receipt_sentinel.evals.golden_case import (
     load_dataset_version,
     load_golden_cases,
 )
+from receipt_sentinel.evals.golden_fixture_text import extract_fixture_cases
 from receipt_sentinel.evals.report import render_report_html
 from receipt_sentinel.evals.run_history import (
     HistoryRecord,
@@ -100,6 +101,11 @@ class EvalPaths:
             pricing_path=REPO_ROOT / "config" / "model_pricing.yaml",
             active_prompt_path=REPO_ROOT / "config" / "active_prompt.yaml",
         )
+
+
+def _load_cases_for_run(golden_dir: Path) -> tuple[list[GoldenCase], dict[str, str]]:
+    # Extract before building the client: the label oracle matches on extracted text
+    return extract_fixture_cases(load_golden_cases(golden_dir), golden_dir)
 
 
 def _git_sha() -> str:
@@ -292,7 +298,7 @@ def command_evals_run(
     Returns:
         Process exit code: 1 on a CRITICAL diff or when drifting, else 0.
     """
-    cases = load_golden_cases(paths.golden_dir)
+    cases, extract_errors = _load_cases_for_run(paths.golden_dir)
     # Read before spending anything: a corrupt history must fail the run up front.
     history = load_history(history_path) if history_path else None
     dataset_version = load_dataset_version(paths.golden_dir)
@@ -312,6 +318,7 @@ def command_evals_run(
             thresholds=thresholds,
             dataset_version=dataset_version,
             git_sha=_git_sha(),
+            extract_errors=extract_errors,
         )
     )
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -406,6 +413,7 @@ def _run_one_model(
     thresholds: Thresholds,
     client: LlmClient,
     model_id: str,
+    extract_errors: dict[str, str],
 ) -> EvalRun:
     return asyncio.run(
         run_evals(
@@ -417,6 +425,7 @@ def _run_one_model(
             thresholds=thresholds,
             dataset_version=load_dataset_version(paths.golden_dir),
             git_sha=_git_sha(),
+            extract_errors=extract_errors,
         )
     )
 
@@ -449,7 +458,7 @@ def command_compare_models(
     Returns:
         Process exit code: 1 on a CRITICAL diff, else 0.
     """
-    cases = load_golden_cases(paths.golden_dir)
+    cases, extract_errors = _load_cases_for_run(paths.golden_dir)
     thresholds = load_thresholds(paths.thresholds_path)
     if not fake:
         # Fail on a missing price before the incumbent run spends any money.
@@ -472,8 +481,12 @@ def command_compare_models(
         provider=candidate_provider,
         model_id=candidate_model,
     )
-    incumbent = _run_one_model(paths, cases, thresholds, incumbent_client, incumbent_id)
-    candidate = _run_one_model(paths, cases, thresholds, candidate_client, candidate_id)
+    incumbent = _run_one_model(
+        paths, cases, thresholds, incumbent_client, incumbent_id, extract_errors
+    )
+    candidate = _run_one_model(
+        paths, cases, thresholds, candidate_client, candidate_id, extract_errors
+    )
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path = paths.report_path.parent / "summary.md"
     unstable = [r for r in (incumbent, candidate) if r.status is RunStatus.PROVIDER_UNSTABLE]

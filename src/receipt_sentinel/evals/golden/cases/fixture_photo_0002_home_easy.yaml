@@ -1,0 +1,39 @@
+id: fixture_photo_0002_home_easy
+difficulty: hard
+source: synthetic
+notes: phone photo (tilted, soft focus, EXIF-rotated), OCR; rendered from synthetic_0002_home_easy
+email_date: '2026-08-19'
+receipt_text: 'ACE HARDWARE
+
+  08/18/2026
+
+  Paint roller            $     1.2
+
+  LED bulb                $   51.31
+
+  Wood screws             $    7.61
+
+  Tax                     $    0.56
+
+  TOTAL                   $   60.68
+
+  '
+expected:
+  vendor: Ace Hardware
+  total: '60.68'
+  currency: USD
+  date: '2026-08-18'
+  category: home
+  line_items:
+  - description: Paint roller
+    amount: '1.2'
+  - description: LED bulb
+    amount: '51.31'
+  - description: Wood screws
+    amount: '7.61'
+  - description: Tax
+    amount: '0.56'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
+fixture: fixtures/fixture_photo_0002_home_easy.jpg

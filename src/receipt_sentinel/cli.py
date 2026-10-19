@@ -28,6 +28,7 @@ from receipt_sentinel.evals.eval_commands import (
     command_promote_case,
     command_record_skip,
 )
+from receipt_sentinel.extract.extracted_document import OcrUnavailable
 from receipt_sentinel.telemetry import configure_tracing
 
 
@@ -104,7 +105,8 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# Exit 1 means a CRITICAL regression; 2 means the run could not happen at all.
+# Exit 1 means a CRITICAL regression; 2 means the run could not happen at all (provider
+# rejected the request, or OCR is not installed).
 EXIT_PROVIDER_REJECTED = 2
 
 
@@ -117,6 +119,9 @@ def main(argv: list[str] | None = None) -> int:
             f"provider rejected the request (HTTP {err.status_code}): {err.message}",
             file=sys.stderr,
         )
+        return EXIT_PROVIDER_REJECTED
+    except OcrUnavailable as err:
+        print(str(err), file=sys.stderr)
         return EXIT_PROVIDER_REJECTED
 
 

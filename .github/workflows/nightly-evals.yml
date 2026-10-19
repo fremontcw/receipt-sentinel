@@ -33,6 +33,8 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
       - run: uv python install 3.12
+      # The extract layer OCRs scanned/photo golden fixtures
+      - run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr
       - run: uv sync
       - name: Fetch published history
         id: history

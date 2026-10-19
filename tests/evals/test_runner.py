@@ -110,3 +110,22 @@ async def test_non_retryable_api_error_aborts_the_run() -> None:
             dataset_version="1",
             git_sha="s",
         )
+
+
+async def test_extract_error_scores_as_failure_without_model_call() -> None:
+    fake = FakeLlmClient(oracle)
+    run = await run_evals(
+        CASES,
+        PROMPT,
+        fake,
+        model_id="fake",
+        pricing=FREE,
+        thresholds=Thresholds(),
+        dataset_version="1",
+        git_sha="s",
+        extract_errors={CASES[0].id: "the PDF is damaged or incomplete"},
+    )
+    failed = next(s for s in run.scores if s.case_id == CASES[0].id)
+    assert failed.error_kind == "extract" and not failed.passed
+    assert not any(CASES[0].receipt_text.strip() in r.user for r in fake.calls)
+    assert len(fake.calls) == len(CASES) - 1
