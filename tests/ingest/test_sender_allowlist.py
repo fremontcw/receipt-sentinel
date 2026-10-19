@@ -2,14 +2,14 @@ import base64
 from pathlib import Path
 
 import pytest
+
+from receipt_sentinel.ingest.inbound_message import parse_message_headers
 from receipt_sentinel.ingest.sender_allowlist import (
     SenderAllowlist,
     decide_sender,
     load_sender_allowlist,
     parse_single_sender,
 )
-
-from receipt_sentinel.ingest.inbound_message import parse_message_headers
 from tests.ingest.email_builders import build_eml, gmail_dmarc_pass
 
 SHOP = SenderAllowlist(
