@@ -7,6 +7,7 @@ import pytest
 from receipt_sentinel import cli
 from receipt_sentinel.cli import main
 from receipt_sentinel.evals import eval_commands
+from receipt_sentinel.evals.eval_commands import REPO_ROOT
 from receipt_sentinel.extract.extracted_document import OcrUnavailable
 
 
@@ -56,3 +57,16 @@ def test_cli_reports_missing_tesseract_without_traceback(
     err = capsys.readouterr().err
     assert "brew install tesseract" in err
     assert "Traceback" not in err
+
+
+def test_cli_ingest_demo_inbox_fake(capsys: pytest.CaptureFixture[str]) -> None:
+    inbox = REPO_ROOT / "examples" / "demo_inbox"
+    argv = ["ingest", "--eml", str(inbox), "--since", "2026-08-01", "--fake"]
+    assert main([*argv, "--allowlist", str(inbox / "allowlist.yaml")]) == 0
+    assert "2 receipt(s)" in capsys.readouterr().out
+
+
+def test_cli_allowlist_add_rejects_display_name(tmp_path: Path) -> None:
+    path = tmp_path / "allowlist.yaml"
+    assert main(["allowlist", "add", "Shop <a@b.com>", "--allowlist", str(path)]) == 2
+    assert main(["allowlist", "add", "--domain", "shop.com", "--allowlist", str(path)]) == 0

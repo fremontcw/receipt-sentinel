@@ -233,6 +233,23 @@ the golden fixtures in `src/receipt_sentinel/evals/golden/fixtures/`; the phone 
 the prompt-injection receipt is the good one. OCR needs Tesseract:
 `brew install tesseract` (macOS) or `apt-get install tesseract-ocr` (Linux).
 
+**Ingest receipt emails (allowlisted senders only):**
+
+```bash
+make ingest-demo     # keyless: 4 demo emails in examples/demo_inbox/
+uv run sentinel ingest --eml path/to/emails --since 2026-08-01   # real model
+uv run sentinel allowlist add receipts@shop.com   # or: --domain shop.com
+```
+
+The demo reads two receipts from an allowlisted sender: a PDF, and a phone photo
+whose prompt-injection text comes back flagged. It also lists two senders that were
+never opened: an unknown shop, and an attacker whose display name impersonates the
+allowlisted address. A sender is trusted only if its exact address or exact domain is
+in `config/allowlist.yaml` *and* the receiving server (Gmail) recorded a DMARC pass for
+that domain. That check is on the server's own header, because a `From` line is just text
+anyone can type. Everything else is reported as metadata (address, count, subjects),
+and its attachments are never opened. Ingest prints a report and stores nothing.
+
 **Same model on Azure (Microsoft Foundry):**
 
 ```bash

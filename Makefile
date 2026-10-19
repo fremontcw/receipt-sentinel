@@ -1,4 +1,4 @@
-.PHONY: install test lint demo compare-demo serve
+.PHONY: install test lint demo compare-demo serve ingest-demo
 
 install:
 	uv sync --extra dev
@@ -20,3 +20,6 @@ compare-demo:
 
 serve:
 	uv run --extra api uvicorn receipt_sentinel.categorize.categorize_api:build_app --factory --host 127.0.0.1 --port 8000
+
+ingest-demo:
+	uv run sentinel ingest --eml examples/demo_inbox --since 2026-08-01 --fake --allowlist examples/demo_inbox/allowlist.yaml

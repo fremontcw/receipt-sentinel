@@ -1,0 +1,4 @@
+# Allowlist for `make ingest-demo` only; the real one is config/allowlist.yaml.
+addresses: [receipts@demo-coffee.example]
+domains: []
+trusted_authserv_id: mx.google.com

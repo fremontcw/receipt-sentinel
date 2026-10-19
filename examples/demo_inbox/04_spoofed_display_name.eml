@@ -1,0 +1,22 @@
+From: "receipts@demo-coffee.example" <attacker@evil.example>
+To: me@example.com
+Subject: Urgent: updated receipt
+Date: Tue, 18 Aug 2026 09:30:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="demo-urgent-updated-receipt"
+
+--demo-urgent-updated-receipt
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Thanks for your purchase. Your receipt is attached.
+
+--demo-urgent-updated-receipt
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="receipt.pdf"
+MIME-Version: 1.0
+
+JVBERi0xLjcgbmV2ZXIgb3BlbmVkOiBzcG9vZmVkIGRpc3BsYXkgbmFtZQ==
+
+--demo-urgent-updated-receipt--

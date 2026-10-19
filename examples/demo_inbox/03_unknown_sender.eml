@@ -1,0 +1,25 @@
+Authentication-Results: mx.google.com; dkim=pass
+ header.i=@unknown-shop.example; dmarc=pass (p=REJECT)
+ header.from=unknown-shop.example
+From: Unknown Shop <billing@unknown-shop.example>
+To: me@example.com
+Subject: Invoice attached
+Date: Tue, 18 Aug 2026 09:30:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="demo-invoice-attached"
+
+--demo-invoice-attached
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Thanks for your purchase. Your receipt is attached.
+
+--demo-invoice-attached
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="invoice.pdf"
+MIME-Version: 1.0
+
+JVBERi0xLjcgbmV2ZXIgb3BlbmVkOiBzZW5kZXIgaXMgbm90IGFsbG93bGlzdGVk
+
+--demo-invoice-attached--
