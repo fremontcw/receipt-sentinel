@@ -8,6 +8,9 @@ dependencies = [
     "anthropic>=0.40",
     "pyyaml>=6.0",
     "opentelemetry-api>=1.25",
+    "pymupdf>=2.0",
+    "pytesseract>=0.3.13",
+    "pillow>=13.0.0",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +23,7 @@ dev = [
     "opentelemetry-sdk>=1.25",
     "fastapi>=0.143.3",
     "httpx>=0.28.1",
+    "python-multipart>=0.0.32",
 ]
 telemetry = [
     "opentelemetry-exporter-otlp-proto-http>=1.25",
@@ -27,6 +31,7 @@ telemetry = [
 ]
 api = [
     "fastapi>=0.143.3",
+    "python-multipart>=0.0.32",
     "uvicorn>=0.54.0",
 ]
 
@@ -43,6 +48,8 @@ packages = ["src/receipt_sentinel"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# PyMuPDF's SWIG bindings warn on import under Python 3.12+; not ours to fix
+filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
 
 [tool.ruff]
 line-length = 100
@@ -58,3 +65,13 @@ pylint.max-statements = 50
 strict = true
 packages = ["receipt_sentinel"]
 mypy_path = "src"
+
+# PyMuPDF ships partial annotations: many methods are untyped. Allow calling them only in the
+# modules that wrap it; everything else stays fully strict.
+[[tool.mypy.overrides]]
+module = ["receipt_sentinel.extract.document_extractor", "receipt_sentinel.evals.synthetic_fixture_renderer"]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = ["pytesseract"]
+ignore_missing_imports = true
