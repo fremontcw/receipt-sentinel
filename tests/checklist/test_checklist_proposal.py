@@ -112,3 +112,24 @@ def test_proposal_json_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "proposal.json"
     save_proposal(proposal, path)
     assert load_proposal(path) == proposal
+
+
+def test_proposal_id_changes_when_item_content_changes() -> None:
+    # Re-running the model can renumber items (vendor case changes the sort) while the dedup
+    # keys stay equal; an old decisions file must then no longer match the proposal
+    first = build_checklist_proposal(
+        _report(ingested("apple"), ingested("Zara")), month=MONTH, conn=None
+    )
+    second = build_checklist_proposal(
+        _report(ingested("Apple"), ingested("Zara")), month=MONTH, conn=None
+    )
+    assert first.proposal_id != second.proposal_id
+
+
+def test_exponent_totals_are_written_as_plain_decimals() -> None:
+    from receipt_sentinel.checklist.checklist_proposal import proposal_to_json
+
+    proposal = build_checklist_proposal(_report(ingested("A", "1E+1")), month=MONTH, conn=None)
+    data = proposal_to_json(proposal)
+    record = data["items"][0]["receipt"]["record"]  # type: ignore[index]
+    assert record["total"] == "10" and record["line_items"][0]["amount"] == "10"

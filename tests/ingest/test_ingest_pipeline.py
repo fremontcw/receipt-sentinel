@@ -24,7 +24,7 @@ class ListSource:
     def __init__(self, raws: list[bytes]) -> None:
         self.messages = [RawMessage(f"m{i}", raw, None) for i, raw in enumerate(raws)]
 
-    def list_messages(self, since: date) -> list[RawMessage]:
+    def list_messages(self, since: date, until: date | None = None) -> list[RawMessage]:
         return self.messages
 
     def full_message(self, message: RawMessage) -> bytes:

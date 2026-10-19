@@ -161,3 +161,11 @@ def test_corrupt_token_file_is_one_readable_error(
     assert main([*argv, "--gmail-credentials", str(tmp_path / "credentials.json")]) == 2
     err = capsys.readouterr().err
     assert "--reauth" in err and "Traceback" not in err
+
+
+def test_until_adds_a_before_clause() -> None:
+    messages = FakeMessages([["a"]], {"a": b"From: x@y.com\r\n\r\n"})
+    GmailSource(FakeService(messages)).list_messages(
+        since=date(2026, 8, 1), until=date(2026, 10, 1)
+    )
+    assert "before:2026/10/01" in str(messages.list_calls[0]["q"])

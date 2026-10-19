@@ -15,6 +15,7 @@ Todo:
 import hashlib
 import re
 import sqlite3
+import unicodedata
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -74,12 +75,16 @@ def open_receipt_store_readonly(path: Path) -> sqlite3.Connection | None:
     """Open an existing store read-only; None when there is none yet. Never creates files."""
     if not path.is_file():
         return None
-    return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    # as_uri() percent-escapes '#' and '?', which would otherwise end the path and drop mode=ro
+    return sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
 
 
 def receipt_dedup_key(vendor: str, total: Decimal, receipt_date: date) -> str:
     """Same vendor, amount and day = same receipt (spec §4.4), whatever the formatting."""
-    vendor_key = re.sub(r"[^a-z0-9]", "", vendor.lower())
+    # NFKC + casefold so width and case variants agree; drop only punctuation and spacing,
+    # so non-Latin vendors keep their letters (an ASCII-only filter collapsed them to "")
+    folded = unicodedata.normalize("NFKC", vendor).casefold()
+    vendor_key = re.sub(r"[\W_]", "", folded) or folded
     total_key = format(total.normalize(), "f")
     return hashlib.sha256(
         f"{vendor_key}|{total_key}|{receipt_date.isoformat()}".encode()

@@ -61,10 +61,12 @@ class GmailSource:
         self.service = service
         self.page_limit = page_limit
 
-    def list_messages(self, since: date) -> list[RawMessage]:
+    def list_messages(self, since: date, until: date | None = None) -> list[RawMessage]:
         messages = self.service.users().messages()
         # Sent and draft mail carry no inbound Authentication-Results, so would only be noise
         query = f"has:attachment after:{since:%Y/%m/%d} -in:sent -in:drafts"
+        if until is not None:
+            query += f" before:{until:%Y/%m/%d}"
         ids: list[str] = []
         page_token: str | None = None
         for _ in range(self.page_limit):

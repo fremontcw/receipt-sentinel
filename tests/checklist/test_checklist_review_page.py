@@ -38,3 +38,14 @@ def test_decisions_file_shape_is_documented_in_page() -> None:
     page = _page()
     assert '"user-reviewed"' in page
     assert "sentinel checklist confirm" in page and "--decisions" in page
+
+
+def test_each_save_gets_its_own_file_name() -> None:
+    # The browser renames a second save "(1)"; a fixed name made the printed command stale
+    assert "decisions-${proposal.proposal_id}-${stamp}.json" in _page()
+
+
+def test_key_repeat_and_duplicate_enter_are_guarded() -> None:
+    page = _page()
+    assert "event.repeat" in page
+    assert "isDuplicate(" in page

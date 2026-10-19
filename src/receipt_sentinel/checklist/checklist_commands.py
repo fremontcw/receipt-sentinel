@@ -30,14 +30,19 @@ from receipt_sentinel.checklist.checklist_proposal import (
 from receipt_sentinel.checklist.checklist_review_page import render_review_page
 from receipt_sentinel.checklist.receipt_store import (
     checklist_exists,
+    confirmed_receipt_dates_by_key,
     open_receipt_store,
     open_receipt_store_readonly,
 )
 from receipt_sentinel.ingest.inbound_message import MessageSource
 from receipt_sentinel.ingest.ingest_commands import run_ingest
+from receipt_sentinel.ingest.ingest_pipeline import OVER_MAX_MESSAGES
 from receipt_sentinel.terminal_safe_text import render_one_line
 
 EXIT_REFUSED = 2
+# Receipts dated in the month can arrive by email up to a month later; mail after that is
+# another month's (and would otherwise spend the --max-messages budget)
+LATE_EMAIL_MONTHS = 2
 PROPOSAL_FILE = "proposal.json"
 REVIEW_PAGE_FILE = "review.html"
 Confirmation = Literal["user-reviewed", "cli-ids"]
@@ -71,10 +76,12 @@ def command_checklist_propose(
     Reads the store (read-only, if it exists) only to flag already-confirmed receipts.
     """
     year, month_number = (int(part) for part in month.split("-"))
+    since = date(year, month_number, 1)
     report = run_ingest(
         source,
         allowlist_path=allowlist_path,
-        since=date(year, month_number, 1),
+        since=since,
+        until=_first_day_months_later(since, LATE_EMAIL_MONTHS),
         fake=fake,
         provider=provider,
         max_messages=max_messages,
@@ -92,12 +99,17 @@ def command_checklist_propose(
     return 0
 
 
+def _first_day_months_later(day: date, months: int) -> date:
+    index = day.year * 12 + day.month - 1 + months
+    return date(index // 12, index % 12 + 1, 1)
+
+
 def format_proposal_summary(proposal: ChecklistProposal, proposal_dir: Path) -> str:
     """Terminal summary; every model- or sender-derived value goes through render_one_line."""
     flagged = sum(1 for item in proposal.items if item.flags)
     lines = [
         f"{proposal.month} checklist proposal {proposal.proposal_id}: "
-        f"{len(proposal.items)} receipt(s), {flagged} flagged",
+        f"{len(proposal.items)} receipt(s), {flagged} flagged (totals include flagged items)",
     ]
     lines += [
         f"  {render_one_line(t.category)} · {t.total} {render_one_line(t.currency)} "
@@ -111,6 +123,19 @@ def format_proposal_summary(proposal: ChecklistProposal, proposal_dir: Path) -> 
         if item.flags
     ]
     lines.append(f"Unknown senders, never opened: {len(proposal.unknown_senders)}")
+    lines.append(f"Skipped files: {len(proposal.skipped)}")
+    over_cap = sum(1 for s in proposal.skipped if s.reason == OVER_MAX_MESSAGES)
+    if over_cap:
+        lines.append(
+            f"  WARNING: {over_cap} message(s) not read: {OVER_MAX_MESSAGES} reached; "
+            "this proposal may be missing receipts"
+        )
+    lines += [
+        f"  {render_one_line(s.filename)} from {render_one_line(s.sender)}: "
+        f"{render_one_line(s.reason)}"
+        for s in proposal.skipped
+        if s.reason != OVER_MAX_MESSAGES
+    ]
     lines.append(f"Review: open {proposal_dir / REVIEW_PAGE_FILE}")
     lines.append(
         f"Then:   sentinel checklist confirm {proposal.proposal_id} --decisions <downloaded file>"
@@ -200,6 +225,16 @@ def _check_decisions(
     if duplicates:
         raise ChecklistConfirmRefused(
             f"accepted item(s) flagged as duplicates: {', '.join(duplicates)}; reject them first"
+        )
+    # The store may have changed since propose ran (another proposal confirmed meanwhile)
+    stored = confirmed_receipt_dates_by_key(
+        conn, (by_id[i].dedup_key for i in decisions.accepted_ids)
+    )
+    now_duplicate = [i for i in decisions.accepted_ids if by_id[i].dedup_key in stored]
+    if now_duplicate:
+        raise ChecklistConfirmRefused(
+            f"already stored since this proposal was made: {', '.join(now_duplicate)}; "
+            "propose again"
         )
     return [by_id[i] for i in decisions.accepted_ids]
 

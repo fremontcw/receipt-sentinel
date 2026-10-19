@@ -18,3 +18,12 @@ def test_eml_directory_filters_by_since_and_sorts(tmp_path: Path) -> None:
 def test_missing_date_is_filtered_out_by_any_since(tmp_path: Path) -> None:
     (tmp_path / "undated.eml").write_bytes(build_eml("a@x.com", date=None))
     assert EmlDirectorySource(tmp_path).list_messages(since=date(1970, 1, 1)) == []
+
+
+def test_eml_directory_honours_until(tmp_path: Path) -> None:
+    (tmp_path / "a.eml").write_bytes(build_eml("a@x.com", date="Mon, 17 Aug 2026 09:00:00 +0000"))
+    (tmp_path / "b.eml").write_bytes(build_eml("a@x.com", date="Thu, 01 Oct 2026 09:00:00 +0000"))
+    found = EmlDirectorySource(tmp_path).list_messages(
+        since=date(2026, 8, 1), until=date(2026, 10, 1)
+    )
+    assert [m.message_id for m in found] == ["a"]

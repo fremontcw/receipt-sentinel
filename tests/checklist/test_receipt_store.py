@@ -92,3 +92,31 @@ def test_rejected_allowlist_add_records_nothing(tmp_path: Path) -> None:
     )
     assert code == 2
     assert not store.exists()
+
+
+def test_dedup_key_keeps_non_latin_vendors_apart() -> None:
+    day = date(2026, 8, 17)
+    assert receipt_dedup_key("スターバックス", Decimal("5"), day) != receipt_dedup_key(
+        "ローソン", Decimal("5"), day
+    )
+    assert receipt_dedup_key("Café Luna", Decimal("5"), day) != receipt_dedup_key(
+        "Caf Luna", Decimal("5"), day
+    )
+    assert receipt_dedup_key("!!!", Decimal("5"), day) != receipt_dedup_key(
+        "???", Decimal("5"), day
+    )
+    assert receipt_dedup_key("ＣＡＦÉ", Decimal("5"), day) == receipt_dedup_key(
+        "café", Decimal("5"), day
+    )
+
+
+def test_readonly_open_with_uri_characters_in_path_never_creates(tmp_path: Path) -> None:
+    path = tmp_path / "we#ird?x" / "store.db"
+    assert open_receipt_store_readonly(path) is None
+    real = tmp_path / "odd#dir" / "store.db"
+    open_receipt_store(real).close()
+    conn = open_receipt_store_readonly(real)
+    assert conn is not None
+    with pytest.raises(sqlite3.OperationalError):
+        _insert_checklist(conn)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["odd#dir"]

@@ -29,6 +29,7 @@ DEMO_INBOX = REPO_ROOT / "examples" / "demo_inbox"
 
 def _propose(tmp_path: Path) -> str:
     out = tmp_path / "checklists"
+    before = set(out.iterdir()) if out.exists() else set()
     code = command_checklist_propose(
         EmlDirectorySource(DEMO_INBOX),
         month="2026-08",
@@ -40,7 +41,7 @@ def _propose(tmp_path: Path) -> str:
         max_messages=50,
     )
     assert code == 0
-    (proposal_dir,) = out.iterdir()
+    (proposal_dir,) = set(out.iterdir()) - before  # the folder this run wrote
     return proposal_dir.name
 
 
@@ -92,7 +93,8 @@ def test_confirming_twice_is_refused_and_reproposal_flags_duplicates(
     assert _confirm(tmp_path, proposal_id, accept=("r01",)) == 2
     assert "already confirmed" in capsys.readouterr().err
     assert _counts(tmp_path / "store.db") == (1, 2)
-    again = _propose(tmp_path)  # same receipts → same id, now flagged against the store
+    again = _propose(tmp_path)  # now flagged against the store, so a new proposal id
+    assert again != proposal_id
     flags = [
         f
         for item in load_proposal(tmp_path / "checklists" / again / "proposal.json").items
@@ -193,3 +195,43 @@ def test_saved_proposal_round_trips_through_confirm(tmp_path: Path) -> None:
     proposal = _duplicate_proposal()
     save_proposal(proposal, tmp_path / "checklists" / proposal.proposal_id / "proposal.json")  # type: ignore[attr-defined]
     assert _confirm(tmp_path, proposal.proposal_id, accept=("r01",)) == 0  # type: ignore[attr-defined]
+
+
+def test_confirm_rechecks_the_store_and_names_the_duplicate(tmp_path: Path) -> None:
+    first = build_checklist_proposal(
+        IngestReport(receipts=(ingested("A", "1.00"),), skipped=(), unknown_senders=()),
+        month="2026-08",
+        conn=None,
+    )
+    second = build_checklist_proposal(
+        IngestReport(
+            receipts=(ingested("A", "1.00"), ingested("B", "2.00")), skipped=(), unknown_senders=()
+        ),
+        month="2026-08",
+        conn=None,
+    )
+    conn = open_receipt_store(tmp_path / "store.db")
+    confirm_checklist(conn, first, ChecklistDecisions(first.proposal_id, ("r01",), (), "cli-ids"))
+    with pytest.raises(ChecklistConfirmRefused, match="r01"):
+        confirm_checklist(
+            conn, second, ChecklistDecisions(second.proposal_id, ("r01", "r02"), (), "cli-ids")
+        )
+    assert _counts(tmp_path / "store.db") == (1, 1)
+
+
+def test_propose_reports_skipped_and_over_cap(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "checklists"
+    command_checklist_propose(
+        EmlDirectorySource(DEMO_INBOX),
+        month="2026-08",
+        allowlist_path=DEMO_INBOX / "allowlist.yaml",
+        store_path=tmp_path / "store.db",
+        out_dir=out,
+        fake=True,
+        provider="anthropic",
+        max_messages=1,
+    )
+    text = capsys.readouterr().out
+    assert "Skipped files: 1" in text and "over --max-messages" in text

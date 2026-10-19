@@ -17,16 +17,17 @@ from receipt_sentinel.ingest.inbound_message import RawMessage, parse_message_he
 
 
 class EmlDirectorySource:
-    """Every `*.eml` in a directory dated on or after `since`, in file-name order."""
+    """Every `*.eml` in a directory dated in [since, until), in file-name order."""
 
     def __init__(self, directory: Path) -> None:
         self.directory = directory
 
-    def list_messages(self, since: date) -> list[RawMessage]:
+    def list_messages(self, since: date, until: date | None = None) -> list[RawMessage]:
         messages: list[RawMessage] = []
         for path in sorted(self.directory.glob("*.eml")):
             raw = path.read_bytes()
-            if parse_message_headers(raw).received_at.date() >= since:
+            day = parse_message_headers(raw).received_at.date()
+            if day >= since and (until is None or day < until):
                 messages.append(RawMessage(message_id=path.stem, raw=raw, received_at=None))
         return messages
 

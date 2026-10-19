@@ -31,6 +31,7 @@
   .status.reject { color: var(--reject); border-color: var(--reject); }
   ul { margin: 8px 0 0; padding-left: 18px; }
   .flags li { color: var(--flag); }
+  .hint { color: var(--reject); min-height: 1.2em; margin: 8px 0 0; }
   .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
   button { font: inherit; color: var(--ink); background: var(--key); border:1px solid var(--line);
            border-radius: 8px; padding: 8px 12px; cursor: pointer; }
@@ -63,6 +64,7 @@
     <div class="meta" id="meta"></div>
     <div class="meta" id="source"></div>
     <span class="status" id="status"></span>
+    <p class="hint" id="hint" role="status"></p>
     <ul class="flags" id="flags"></ul>
     <ul id="lines"></ul>
     <div class="actions">
@@ -123,7 +125,7 @@ function counts() {
            rejected: all.filter((d) => d === "reject").length };
 }
 
-// Exact decimal sums (totals arrive as strings like "12.50")
+// Exact decimal sums (totals arrive as plain strings like "12.50", never exponent form)
 const SCALE = 10000n;
 function toUnits(amount) {
   const [whole, fraction = ""] = amount.replace("-", "").split(".");
@@ -131,9 +133,11 @@ function toUnits(amount) {
   return amount.startsWith("-") ? -units : units;
 }
 function fromUnits(units) {
+  // At least 2 decimals, more when the amounts have them (3-decimal currencies): never cut
   const sign = units < 0n ? "-" : "";
   const abs = units < 0n ? -units : units;
-  return `${sign}${abs / SCALE}.${String(abs % SCALE).padStart(4, "0").slice(0, 2)}`;
+  const fraction = String(abs % SCALE).padStart(4, "0").replace(/0{1,2}$/, "");
+  return `${sign}${abs / SCALE}.${fraction.padEnd(2, "0")}`;
 }
 
 function renderTotals() {
@@ -190,9 +194,18 @@ function render() {
   list("lines", r.line_items.map((li) => `${li.description} — ${li.amount}`));
 }
 
+const isDuplicate = (item) => item.flags.some((flag) => flag.startsWith("duplicate of"));
+
 function decide(value) {
   if (!items.length) return openSave();
   const item = items[index];
+  // Enter is the "looks right" key; a duplicate can't be accepted (confirm would refuse the
+  // whole file), so make the user say so with X instead
+  if (value === "accept" && isDuplicate(item)) {
+    text("hint", "Duplicate: press X to reject it (accepting would be refused at confirm)");
+    return;
+  }
+  text("hint", "");
   if (value) decisions[item.item_id] = value; else delete decisions[item.item_id];
   saved = false;
   if (index < items.length - 1) { index += 1; render(); } else { render(); openSave(); }
@@ -215,12 +228,13 @@ function save() {
   const rejected = items.filter((i) => decisions[i.item_id] === "reject").map((i) => i.item_id);
   const file = { proposal_id: proposal.proposal_id, accepted_ids: accepted, rejected_ids: rejected,
                  confirmation: "user-reviewed", reviewed_at: new Date().toISOString() };
-  const name = `decisions-${proposal.proposal_id}.json`;
+  const stamp = file.reviewed_at.replace(/[:.]/g, "-");
+  const name = `decisions-${proposal.proposal_id}-${stamp}.json`;
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
   link.download = name;
   link.click();
-  URL.revokeObjectURL(link.href);
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);  // some browsers cancel if revoked at once
   saved = true;
   text("saved-name", name);
   text("next-command", `sentinel checklist confirm ${proposal.proposal_id} --decisions ~/Downloads/${name}`);
@@ -241,6 +255,7 @@ document.addEventListener("keydown", (event) => {
     return openSave();
   }
   if ($("save-dialog").open || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.repeat) return;  // a held key must not decide several unseen items
   const key = event.key.toLowerCase();
   if (key === "enter") { event.preventDefault(); decide("accept"); }
   else if (key === "x") decide("reject");

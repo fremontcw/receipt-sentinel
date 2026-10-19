@@ -16,7 +16,7 @@ Todo:
 import hashlib
 import json
 import sqlite3
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -87,15 +87,19 @@ def build_checklist_proposal(
         flags = _flags(receipt, key, confirmed, first_item_by_key)
         first_item_by_key.setdefault(key, item_id)
         items.append(ChecklistItem(item_id, key, receipt, flags))
-    digest = hashlib.sha256("\n".join(sorted(keys)).encode()).hexdigest()
-    return ChecklistProposal(
-        proposal_id=f"{month}-{digest[:PROPOSAL_ID_HASH_CHARS]}",
+    draft = ChecklistProposal(
+        proposal_id="",
         month=month,
         items=tuple(items),
         category_totals=_category_totals(items),
         unknown_senders=report.unknown_senders,
         skipped=report.skipped,
     )
+    # The id covers every item's number, key, record and flags: if a re-run renumbers or
+    # changes anything, decisions saved against the old proposal no longer match it
+    content = json.dumps(proposal_to_json(draft)["items"], sort_keys=True)
+    digest = hashlib.sha256(f"{month}\n{content}".encode()).hexdigest()
+    return replace(draft, proposal_id=f"{month}-{digest[:PROPOSAL_ID_HASH_CHARS]}")
 
 
 def _flags(
@@ -154,19 +158,35 @@ def proposal_to_json(proposal: ChecklistProposal) -> dict[str, object]:
                         for k, v in asdict(item.receipt).items()
                         if k not in ("record", "validation")
                     },
-                    "record": item.receipt.record.model_dump(mode="json"),
+                    "record": _record_json(item.receipt.record),
                     "validation": [asdict(rule) for rule in item.receipt.validation.rules],
                 },
             }
             for item in proposal.items
         ],
         "category_totals": [
-            {**asdict(t), "total": str(t.total), "item_ids": list(t.item_ids)}
+            {**asdict(t), "total": _plain(t.total), "item_ids": list(t.item_ids)}
             for t in proposal.category_totals
         ],
         "unknown_senders": [asdict(u) for u in proposal.unknown_senders],
         "skipped": [asdict(s) for s in proposal.skipped],
     }
+
+
+def _record_json(record: ReceiptRecord) -> dict[str, object]:
+    # Plain decimal strings: pydantic writes Decimal("1E+1") as "1E+1", which the page and
+    # people both misread
+    data = record.model_dump(mode="json")
+    data["total"] = _plain(record.total)
+    data["line_items"] = [
+        {**item, "amount": _plain(line.amount)}
+        for item, line in zip(data["line_items"], record.line_items, strict=True)
+    ]
+    return data
+
+
+def _plain(amount: Decimal) -> str:
+    return format(amount, "f")
 
 
 def load_proposal(path: Path) -> ChecklistProposal:
