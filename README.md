@@ -25,6 +25,7 @@ src/receipt_sentinel/
 ├── ingest/             .eml directory or Gmail (read-only) → sender allowlist + DMARC → attachments
 ├── extract/            PDF/photo → text (PyMuPDF, Tesseract OCR, deskew; killable worker, caps)
 ├── validate/           Deterministic rules: items sum to total, date window, ISO 4217 currency
+├── checklist/          Monthly proposal + keyboard review page; confirm → SQLite (dedup, one transaction)
 ├── categorize/         LLM call: receipt text → ReceiptRecord (strict JSON schema, no tools)
 │   ├── categorize_receipt.py
 │   ├── llm_client.py           LlmClient protocol
@@ -46,8 +47,8 @@ mcp_run_history_server/  C# MCP server: lets an agent ask "what regressed?" (rea
 ```
 
 Feature path: `email → allowlist (headers only) → attachment → extract → categorize
-→ validate → report`. The checklist layer (user-confirmed persistence) is next; see
-[Roadmap](#roadmap). The golden set feeds both text and file fixtures, so the harness
+→ validate → monthly proposal → you review and confirm → SQLite`. Nothing is stored
+without that confirm. The golden set feeds both text and file fixtures, so the harness
 gates extraction as well as the LLM call.
 
 Harness loop:
@@ -388,5 +389,5 @@ feature it will eventually gate more of):
 
 6. ~~Extract layer, validate layer, PDF/image golden fixtures~~ done.
 7. ~~Ingest: `.eml` source, Gmail (read-only) source, sender allowlist~~ done.
-8. Checklist propose/confirm (SQLite, user-confirmed persistence only).
+8. ~~Checklist propose/confirm (SQLite, user-confirmed persistence only)~~ done.
 9. Dockerfile and a 3-minute walkthrough.

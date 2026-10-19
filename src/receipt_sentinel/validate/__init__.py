@@ -8,5 +8,5 @@ Status:
 Issues:
     None
 Todo:
-    - [ ] Duplicate detection (vendor+total+date) lands with the receipts store in step 8
+    None
 """
