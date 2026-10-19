@@ -65,9 +65,31 @@ def command_ingest(
     Returns:
         0. Bad setup (missing key, missing Tesseract) raises and the CLI reports it.
     """
+    report = run_ingest(
+        source,
+        allowlist_path=allowlist_path,
+        since=since,
+        fake=fake,
+        provider=provider,
+        max_messages=max_messages,
+    )
+    print(render_terminal_safe(format_ingest_report(report, since=since)))
+    return 0
+
+
+def run_ingest(
+    source: MessageSource,
+    *,
+    allowlist_path: Path,
+    since: date,
+    fake: bool,
+    provider: str,
+    max_messages: int,
+) -> IngestReport:
+    """Ingest with the configured model: the shared core of `ingest` and `checklist propose`."""
     cases = extract_fixture_cases(load_golden_cases())[0] if fake else load_golden_cases()
     client, model_id = build_client(fake=fake, demo_noise=False, cases=cases, provider=provider)
-    report = asyncio.run(
+    return asyncio.run(
         ingest_messages(
             source,
             load_sender_allowlist(allowlist_path),
@@ -78,8 +100,6 @@ def command_ingest(
             max_messages=max_messages,
         )
     )
-    print(render_terminal_safe(format_ingest_report(report, since=since)))
-    return 0
 
 
 def format_ingest_report(report: IngestReport, *, since: date) -> str:

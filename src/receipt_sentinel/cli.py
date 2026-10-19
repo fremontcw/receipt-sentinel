@@ -2,7 +2,7 @@
 
 Command-line entry for Receipt Sentinel:
 `sentinel evals run|compare-models|promote-baseline|promote`, `sentinel ingest`,
-`sentinel allowlist add`.
+`sentinel allowlist add`, `sentinel checklist propose|confirm`.
 
 Status:
     None
@@ -14,6 +14,7 @@ Todo:
 
 import argparse
 import os
+import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -21,6 +22,10 @@ from pathlib import Path
 import anthropic
 
 from receipt_sentinel.categorize.anthropic_llm_client import DEFAULT_MODEL_ID
+from receipt_sentinel.checklist.checklist_commands import (
+    command_checklist_confirm,
+    command_checklist_propose,
+)
 from receipt_sentinel.checklist.receipt_store import DEFAULT_STORE_PATH
 from receipt_sentinel.evals.dashboard import command_build_dashboard
 from receipt_sentinel.evals.eval_commands import (
@@ -41,12 +46,14 @@ from receipt_sentinel.telemetry import configure_tracing
 
 DEFAULT_INGEST_DAYS = 30
 DEFAULT_ALLOWLIST_PATH = REPO_ROOT / "config" / "allowlist.yaml"
+DEFAULT_CHECKLIST_DIR = REPO_ROOT / "runs" / "checklists"
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sentinel")
     top = parser.add_subparsers(dest="group", required=True)
     _add_ingest_parsers(top)
+    _add_checklist_parsers(top)
     evals = top.add_parser("evals", help="regression harness").add_subparsers(
         dest="command", required=True
     )
@@ -147,20 +154,76 @@ def _add_ingest_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser
     add.add_argument("--db", type=Path, default=DEFAULT_STORE_PATH, help="local receipt store")
 
 
+def _month(value: str) -> str:
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", value):
+        raise argparse.ArgumentTypeError(f"{value!r} is not a month like 2026-08")
+    return value
+
+
+def _add_checklist_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    checklist = top.add_parser("checklist", help="monthly checklist: propose, then confirm")
+    commands = checklist.add_subparsers(dest="command", required=True)
+    propose = commands.add_parser("propose", help="ingest a month and write a proposal")
+    propose.add_argument("--month", type=_month, required=True, help="YYYY-MM")
+    source = propose.add_mutually_exclusive_group(required=True)
+    source.add_argument("--eml", type=Path, help="directory of .eml files")
+    source.add_argument("--gmail", action="store_true", help="your Gmail, read-only")
+    propose.add_argument("--reauth", action="store_true", help="with --gmail: sign in again")
+    propose.add_argument("--gmail-credentials", type=Path, default=REPO_ROOT / "credentials.json")
+    propose.add_argument("--gmail-token", type=Path, default=REPO_ROOT / "token.json")
+    propose.add_argument("--fake", action="store_true", help="keyless golden-label model")
+    propose.add_argument("--provider", choices=("anthropic", "azure"), default="anthropic")
+    propose.add_argument("--max-messages", type=int, default=50, help="model spend bound")
+    propose.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST_PATH)
+    confirm = commands.add_parser("confirm", help="store the receipts you accepted")
+    confirm.add_argument("proposal_id")
+    choice = confirm.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--decisions", type=Path, help="file saved by the review page")
+    choice.add_argument("--accept", help="comma-separated item ids, e.g. r01,r03")
+    for command in (propose, confirm):
+        command.add_argument("--db", type=Path, default=DEFAULT_STORE_PATH, help="local store")
+        command.add_argument("--out", type=Path, default=DEFAULT_CHECKLIST_DIR)
+
+
+def _message_source(args: argparse.Namespace) -> MessageSource:
+    if args.gmail:
+        return GmailSource(
+            build_gmail_service(args.gmail_credentials, args.gmail_token, reauth=args.reauth)
+        )
+    return EmlDirectorySource(args.eml)
+
+
+def _dispatch_checklist(args: argparse.Namespace) -> int:
+    if args.command == "confirm":
+        accept = (
+            tuple(i.strip() for i in args.accept.split(",") if i.strip()) if args.accept else None
+        )
+        return command_checklist_confirm(
+            args.proposal_id,
+            out_dir=args.out,
+            store_path=args.db,
+            decisions_path=args.decisions,
+            accept=accept,
+        )
+    return command_checklist_propose(
+        _message_source(args),
+        month=args.month,
+        allowlist_path=args.allowlist,
+        store_path=args.db,
+        out_dir=args.out,
+        fake=args.fake,
+        provider=args.provider,
+        max_messages=args.max_messages,
+    )
+
+
 def _dispatch_ingest(args: argparse.Namespace) -> int:
     if args.group == "allowlist":
         return command_allowlist_add(
             args.allowlist, address=args.address, domain=args.domain, store_path=args.db
         )
-    source: MessageSource = (
-        GmailSource(
-            build_gmail_service(args.gmail_credentials, args.gmail_token, reauth=args.reauth)
-        )
-        if args.gmail
-        else EmlDirectorySource(args.eml)
-    )
     return command_ingest(
-        source,
+        _message_source(args),
         allowlist_path=args.allowlist,
         since=args.since,
         fake=args.fake,
@@ -192,6 +255,8 @@ def main(argv: list[str] | None = None) -> int:
 def _dispatch(args: argparse.Namespace) -> int:
     if args.group in ("ingest", "allowlist"):
         return _dispatch_ingest(args)
+    if args.group == "checklist":
+        return _dispatch_checklist(args)
     if args.command == "dashboard":
         return command_build_dashboard(args.history, args.out, repo_url=args.repo_url)
     if args.command == "record-skip":

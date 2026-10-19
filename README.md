@@ -264,6 +264,24 @@ The first run opens a browser to sign in. The scope is `gmail.readonly` only, an
 token is saved to `token.json` (gitignored, owner-only). If it expires, add `--reauth`.
 Gmail never runs in CI; tests use a fake Gmail service.
 
+**Monthly checklist (propose → you review → confirm):**
+
+```bash
+make checklist-demo   # keyless: proposes August 2026 from the demo inbox
+uv run sentinel checklist propose --month 2026-08 --gmail          # or --eml DIR
+open runs/checklists/<proposal_id>/review.html                      # Enter accept · X reject · S skip · ⌫ back
+uv run sentinel checklist confirm <proposal_id> --decisions ~/Downloads/decisions-<proposal_id>.json
+```
+
+`propose` ingests the month and writes a proposal: receipts with flags (needs review, low
+confidence < 0.7, duplicate, injection attempt), totals per category *and currency*, and
+the unknown senders, plus a keyboard review page. Nothing is stored. The review page
+downloads your decisions, and `confirm` is the only thing that writes to the local SQLite
+store (`data/receipt_sentinel.db`, gitignored), in one transaction. A second confirm of
+the same proposal, an id that isn't in the proposal, or an accepted duplicate is refused
+with nothing written. `--accept r01,r03` works without the page. For the demo, add
+`--db runs/checklist-demo/store.db --out runs/checklist-demo` to `confirm`.
+
 **Same model on Azure (Microsoft Foundry):**
 
 ```bash
