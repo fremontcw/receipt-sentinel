@@ -6,6 +6,8 @@ import pytest
 
 from receipt_sentinel import cli
 from receipt_sentinel.cli import main
+from receipt_sentinel.evals import eval_commands
+from receipt_sentinel.extract.extracted_document import OcrUnavailable
 
 
 def test_cli_evals_run_fake(tmp_path: Path) -> None:
@@ -41,3 +43,16 @@ def test_cli_record_skip(tmp_path: Path) -> None:
     argv = ["evals", "record-skip", "--history", str(history), "--reason", "rejected key"]
     assert main(argv) == 0
     assert "rejected key" in history.read_text()
+
+
+def test_cli_reports_missing_tesseract_without_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def no_tesseract(*args: object, **kwargs: object) -> None:
+        raise OcrUnavailable()
+
+    monkeypatch.setattr(eval_commands, "extract_fixture_cases", no_tesseract)
+    assert main(["evals", "run", "--fake", "--out", str(tmp_path)]) == 2
+    err = capsys.readouterr().err
+    assert "brew install tesseract" in err
+    assert "Traceback" not in err

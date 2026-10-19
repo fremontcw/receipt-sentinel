@@ -28,7 +28,7 @@ from receipt_sentinel.evals.golden_case import Difficulty, GoldenCase
 VENDOR_FUZZY_THRESHOLD = 0.85
 TOTAL_TOLERANCE = Decimal("0.01")
 MAX_RECEIPT_AGE = timedelta(days=60)
-ErrorKind = Literal["parse", "provider"]
+ErrorKind = Literal["parse", "provider", "extract"]
 
 
 @dataclass(frozen=True)
