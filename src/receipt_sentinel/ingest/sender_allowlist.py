@@ -16,6 +16,7 @@ Todo:
 import re
 from dataclasses import dataclass
 from email import policy
+from email.headerregistry import Address
 from pathlib import Path
 
 import yaml
@@ -56,7 +57,7 @@ def load_sender_allowlist(path: Path) -> SenderAllowlist:
 def parse_single_sender(raw_from: str) -> str | None:
     """The one lowercased addr-spec in a From header; None for zero, several or junk."""
     header = policy.default.header_factory("From", raw_from)
-    addresses = getattr(header, "addresses", ())
+    addresses: tuple[Address, ...] = getattr(header, "addresses", ())
     if len(addresses) != 1:
         return None
     address = addresses[0]
