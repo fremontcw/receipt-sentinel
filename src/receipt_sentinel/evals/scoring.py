@@ -13,8 +13,6 @@ Todo:
 
 import re
 from dataclasses import dataclass
-from datetime import timedelta
-from decimal import Decimal
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Literal
@@ -24,10 +22,9 @@ import yaml
 from receipt_sentinel.categorize.llm_client import LlmResponse
 from receipt_sentinel.categorize.receipt_record import ReceiptRecord
 from receipt_sentinel.evals.golden_case import Difficulty, GoldenCase
+from receipt_sentinel.validate.receipt_validation import TOTAL_TOLERANCE, validate_receipt
 
 VENDOR_FUZZY_THRESHOLD = 0.85
-TOTAL_TOLERANCE = Decimal("0.01")
-MAX_RECEIPT_AGE = timedelta(days=60)
 ErrorKind = Literal["parse", "provider", "extract"]
 
 
@@ -115,17 +112,8 @@ def line_item_recall(case: GoldenCase, record: ReceiptRecord) -> float:
 
 
 def deterministic_validation_passes(case: GoldenCase, record: ReceiptRecord) -> bool:
-    """Deterministic subset of the validate layer usable before the full rules land.
-
-    Checks line items sum to the total (within tolerance) and the receipt date falls
-    within the plausible window before the email date.
-    """
-    # ponytail: subset of the validate layer; the full rule set plugs in here later
-    if record.line_items:
-        items_sum = sum((li.amount for li in record.line_items), Decimal("0"))
-        if abs(items_sum - record.total) > TOTAL_TOLERANCE:
-            return False
-    return case.email_date - MAX_RECEIPT_AGE <= record.date <= case.email_date
+    """True when the record passes every validate-layer rule for this case's email date."""
+    return validate_receipt(record, email_date=case.email_date).passed
 
 
 def score_case(
