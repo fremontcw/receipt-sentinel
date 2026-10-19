@@ -7,9 +7,10 @@ attachment caps first, and runs in a worker process killed at the 30 s limit.
 Status:
     None
 Issues:
-    None
+    No deskew: a tilted phone photo of a wide receipt can drift rows together under OCR
+    (golden case fixture_photo_0002 fails on it).
 Todo:
-    None
+    - [ ] Deskew photos before OCR (projection-profile angle search)
 """
 
 import io
@@ -38,6 +39,9 @@ from receipt_sentinel.extract.extracted_document import (
 # Below this many non-whitespace characters a PDF page is treated as a scan
 MIN_NATIVE_CHARS_PER_PAGE = 20
 OCR_DPI = 300
+# psm 6 = one uniform block of text. The default (auto layout) reads a receipt's label and
+# amount columns as separate blocks, so the total ends up lines away from "TOTAL"
+OCR_CONFIG = "--psm 6"
 # Interpreter start-up + imports in the worker, on top of the document's own time limit
 WORKER_STARTUP_GRACE_SECONDS = 5.0
 WORKER_MODULE = "receipt_sentinel.extract.extraction_worker"
@@ -206,7 +210,7 @@ def _ocr_image(image: Image.Image, deadline: float) -> tuple[str, float | None]:
         raise ExtractionRejected("timeout", "reading the file took too long")
     try:
         words = pytesseract.image_to_data(
-            image, output_type=pytesseract.Output.DICT, timeout=remaining
+            image, output_type=pytesseract.Output.DICT, timeout=remaining, config=OCR_CONFIG
         )
     except pytesseract.TesseractNotFoundError as err:
         raise OcrUnavailable() from err

@@ -1,6 +1,7 @@
 import io
 import shutil
 import time
+from collections.abc import Callable
 
 import pymupdf
 import pytesseract
@@ -25,6 +26,12 @@ from receipt_sentinel.extract.extracted_document import (
 from tests.extract.malformed_pdf_builders import embedded_image_bomb_pdf, vector_heavy_pdf
 
 needs_tesseract = pytest.mark.skipif(shutil.which("tesseract") is None, reason="needs tesseract")
+
+
+def _tilted_photo(text: str) -> bytes:
+    return render_photo_jpeg(text, rotate_degrees=2.5, blur_radius=0.6, exif_orientation=6)
+
+
 RECEIPT = "SHELL GAS STATION\n08/05/2026\nUNLEADED 10.2 GAL  38.76\nTOTAL  38.76"
 
 
@@ -123,3 +130,32 @@ def test_slow_to_render_pdf_is_cut_off_at_the_time_limit() -> None:
 
 def test_pdf_embedded_image_bomb_is_rejected_before_render() -> None:
     assert _rejection_kind(embedded_image_bomb_pdf(7_000)) == "too_large"  # 49 MP > 40 MP cap
+
+
+COLUMNS_RECEIPT = (
+    "WALGREENS\n08/14/2026\nIbuprofen               $   47.41\n"
+    "Cleaning                $    54.8\nVitamin D               $   11.45\n"
+    "TOTAL                   $  113.66\n"
+)
+
+
+@needs_tesseract
+@pytest.mark.parametrize(
+    "render",
+    [
+        render_scanned_pdf,
+        pytest.param(
+            _tilted_photo,
+            marks=pytest.mark.xfail(
+                strict=True, reason="no deskew yet: a 2.5° tilt drifts rows on wide receipts"
+            ),
+        ),
+    ],
+)
+def test_ocr_keeps_each_amount_on_its_label_line(render: Callable[[str], bytes]) -> None:
+    # Found by the first real v2 eval: default page segmentation read labels and amounts
+    # as separate columns, so the model could not tell which number was the total
+    lines = extract_document(render(COLUMNS_RECEIPT)).text.splitlines()
+    total_line = next(line for line in lines if "TOTAL" in line)
+    assert "113.66" in total_line
+    assert "47.41" in next(line for line in lines if "Ibuprofen" in line)
