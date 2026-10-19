@@ -1,0 +1,35 @@
+id: fixture_photo_0033_health_easy
+difficulty: hard
+source: synthetic
+notes: phone photo (tilted, soft focus, EXIF-rotated), OCR; rendered from synthetic_0033_health_easy
+email_date: '2026-08-15'
+receipt_text: 'WALGREENS
+
+  08/14/2026
+
+  Ibuprofen               $   47.41
+
+  Cleaning                $    54.8
+
+  Vitamin D               $   11.45
+
+  TOTAL                   $  113.66
+
+  '
+expected:
+  vendor: Walgreens
+  total: '113.66'
+  currency: USD
+  date: '2026-08-14'
+  category: health
+  line_items:
+  - description: Ibuprofen
+    amount: '47.41'
+  - description: Cleaning
+    amount: '54.8'
+  - description: Vitamin D
+    amount: '11.45'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
+fixture: fixtures/fixture_photo_0033_health_easy.jpg

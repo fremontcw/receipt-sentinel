@@ -16,7 +16,7 @@ import io
 import pymupdf
 from PIL import Image, ImageFilter
 
-_PAGE_WIDTH_PT = 300
+_MIN_PAGE_WIDTH_PT = 300
 _MARGIN_PT = 24
 _FONT_SIZE_PT = 11
 _LINE_HEIGHT_PT = 15
@@ -32,15 +32,21 @@ _STORE_TRANSPOSE_FOR_ORIENTATION = {
 
 
 def render_native_pdf(text: str) -> bytes:
-    """One-page receipt PDF with real, selectable text (Courier)."""
-    lines = text.splitlines()
-    height = 2 * _MARGIN_PT + _LINE_HEIGHT_PT * max(1, len(lines))
+    """One-page receipt PDF with real, selectable text, wide enough for the longest line."""
+    # Embedded Courier (not the base-14 one): the base-14 encoding has no € sign
+    font = pymupdf.Font("cour")
+    lines = text.splitlines() or [""]
+    width = 2 * _MARGIN_PT + max(font.text_length(line, fontsize=_FONT_SIZE_PT) for line in lines)
+    height = 2 * _MARGIN_PT + _LINE_HEIGHT_PT * len(lines)
     doc = pymupdf.open()
-    page = doc.new_page(width=_PAGE_WIDTH_PT, height=height)
+    page = doc.new_page(width=max(_MIN_PAGE_WIDTH_PT, width), height=height)
+    writer = pymupdf.TextWriter(page.rect)
     for index, line in enumerate(lines):
         baseline = _MARGIN_PT + _LINE_HEIGHT_PT * (index + 1)
-        page.insert_text((_MARGIN_PT, baseline), line, fontname="cour", fontsize=_FONT_SIZE_PT)
-    return bytes(doc.tobytes())
+        writer.append((_MARGIN_PT, baseline), line, font=font, fontsize=_FONT_SIZE_PT)
+    writer.write_text(page)
+    doc.subset_fonts()
+    return _deterministic_pdf_bytes(doc)
 
 
 def _render_receipt_image(text: str) -> Image.Image:
@@ -51,14 +57,15 @@ def _render_receipt_image(text: str) -> Image.Image:
 
 def render_scanned_pdf(text: str) -> bytes:
     """One-page PDF holding only a picture of the receipt: no text layer, so OCR is needed."""
-    image = _render_receipt_image(text)
-    png = io.BytesIO()
-    image.save(png, format="PNG")
+    # Scanners save grayscale JPEG; an RGB PNG of the same page is ~1 MB
+    image = _render_receipt_image(text).convert("L")
+    scan = io.BytesIO()
+    image.save(scan, format="JPEG", quality=80)
     doc = pymupdf.open()
     scale = 72 / _SCAN_DPI
     page = doc.new_page(width=image.width * scale, height=image.height * scale)
-    page.insert_image(page.rect, stream=png.getvalue())
-    return bytes(doc.tobytes())
+    page.insert_image(page.rect, stream=scan.getvalue())
+    return _deterministic_pdf_bytes(doc)
 
 
 def render_photo_jpeg(
@@ -85,3 +92,9 @@ def render_photo_jpeg(
     out = io.BytesIO()
     image.save(out, format="JPEG", quality=85, exif=exif)
     return out.getvalue()
+
+
+def _deterministic_pdf_bytes(doc: pymupdf.Document) -> bytes:
+    # No timestamps, no random document id: re-rendering a fixture must not change its bytes
+    doc.set_metadata({})
+    return bytes(doc.tobytes(no_new_id=True, garbage=3, deflate=True))

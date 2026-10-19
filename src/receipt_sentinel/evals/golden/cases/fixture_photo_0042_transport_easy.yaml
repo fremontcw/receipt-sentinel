@@ -1,0 +1,35 @@
+id: fixture_photo_0042_transport_easy
+difficulty: hard
+source: synthetic
+notes: phone photo (tilted, soft focus, EXIF-rotated), OCR; rendered from synthetic_0042_transport_easy
+email_date: '2026-08-06'
+receipt_text: 'BART
+
+  08/05/2026
+
+  Clipper reload          $   55.61
+
+  Ride fare               $    3.82
+
+  Tax                     $    1.43
+
+  TOTAL                   $   60.86
+
+  '
+expected:
+  vendor: BART
+  total: '60.86'
+  currency: USD
+  date: '2026-08-05'
+  category: transport
+  line_items:
+  - description: Clipper reload
+    amount: '55.61'
+  - description: Ride fare
+    amount: '3.82'
+  - description: Tax
+    amount: '1.43'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
+fixture: fixtures/fixture_photo_0042_transport_easy.jpg

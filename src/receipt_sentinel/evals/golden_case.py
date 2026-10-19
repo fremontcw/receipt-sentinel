@@ -12,11 +12,11 @@ Todo:
 
 from datetime import date
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from receipt_sentinel.categorize.receipt_record import ModelOutput
 
@@ -46,6 +46,17 @@ class GoldenCase(BaseModel):
     receipt_text: str
     expected: ModelOutput
     error_tag: ErrorTag | None = None
+    # PDF/image the receipt arrives as, relative to the golden directory. When set, evals
+    # feed the model what extraction reads from this file, not receipt_text.
+    fixture: str | None = None
+
+    @field_validator("fixture")
+    @classmethod
+    def fixture_stays_inside_golden_dir(cls, value: str | None) -> str | None:
+        """Reject absolute paths and `..` so a case can never point outside the dataset."""
+        if value is not None and (PurePosixPath(value).is_absolute() or ".." in value.split("/")):
+            raise ValueError(f"fixture must be a relative path inside the golden dir: {value}")
+        return value
 
     @model_validator(mode="after")
     def injection_flag_matches_difficulty(self) -> "GoldenCase":

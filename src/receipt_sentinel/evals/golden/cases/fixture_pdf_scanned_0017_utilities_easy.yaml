@@ -1,0 +1,35 @@
+id: fixture_pdf_scanned_0017_utilities_easy
+difficulty: hard
+source: synthetic
+notes: scanned PDF, OCR; rendered from synthetic_0017_utilities_easy
+email_date: '2026-08-21'
+receipt_text: 'PG&E
+
+  08/20/2026
+
+  Wireless plan           $    47.1
+
+  Electric service        $   22.96
+
+  Internet 300Mbps        $   55.91
+
+  TOTAL                   $  125.97
+
+  '
+expected:
+  vendor: PG&E
+  total: '125.97'
+  currency: USD
+  date: '2026-08-20'
+  category: utilities
+  line_items:
+  - description: Wireless plan
+    amount: '47.1'
+  - description: Electric service
+    amount: '22.96'
+  - description: Internet 300Mbps
+    amount: '55.91'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
+fixture: fixtures/fixture_pdf_scanned_0017_utilities_easy.pdf

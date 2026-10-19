@@ -17,7 +17,7 @@ from receipt_sentinel.evals.eval_commands import (
     command_promote_case,
     command_record_skip,
 )
-from receipt_sentinel.evals.golden_case import GOLDEN_DIR, load_golden_cases
+from receipt_sentinel.evals.golden_case import GOLDEN_DIR, load_dataset_version, load_golden_cases
 from receipt_sentinel.evals.run_history import (
     HISTORY_SCHEMA_VERSION,
     ScoredNight,
@@ -26,6 +26,8 @@ from receipt_sentinel.evals.run_history import (
     load_history,
 )
 from receipt_sentinel.evals.run_store import RunStatus, list_recent_runs, load_run_json
+
+DATASET_VERSION = load_dataset_version()
 
 
 def paths_in(tmp_path: Path) -> EvalPaths:
@@ -36,7 +38,7 @@ def paths_in(tmp_path: Path) -> EvalPaths:
 def test_first_fake_run_without_baseline_saves_and_reports(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     assert command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None) == 0
-    runs = list_recent_runs(p.db_path, dataset_version="1", limit=5)
+    runs = list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=5)
     summary_path = p.report_path.parent / "summary.md"
     assert len(runs) == 1 and p.report_path.exists() and summary_path.exists()
 
@@ -44,7 +46,7 @@ def test_first_fake_run_without_baseline_saves_and_reports(tmp_path: Path) -> No
 def test_promote_then_second_run_diffs_against_baseline(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
-    run_id = list_recent_runs(p.db_path, dataset_version="1", limit=1)[0].run_id
+    run_id = list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=1)[0].run_id
     assert command_promote_baseline(p, run_id) == 0
     assert load_run_json(p.baseline_path).run_id == run_id
     code = command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
@@ -77,7 +79,7 @@ def test_provider_unstable_run_exits_zero_saves_nothing_but_writes_summary(
         p, fake=True, save=True, slack_webhook=None, report_url=None, client_override=Flaky()
     )
     assert code == 0
-    assert list_recent_runs(p.db_path, dataset_version="1", limit=5) == []
+    assert list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=5) == []
     assert (p.report_path.parent / "summary.md").exists()
     assert "PROVIDER_UNSTABLE" in (p.report_path.parent / "summary.md").read_text()
     assert (p.report_path.parent / "status").read_text() == "PROVIDER_UNSTABLE\n"
@@ -86,7 +88,7 @@ def test_provider_unstable_run_exits_zero_saves_nothing_but_writes_summary(
 def test_regression_against_clean_baseline_is_critical_and_exits_one(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
-    run_id = list_recent_runs(p.db_path, dataset_version="1", limit=1)[0].run_id
+    run_id = list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=1)[0].run_id
     assert command_promote_baseline(p, run_id) == 0
     code = command_evals_run(
         p, fake=True, save=True, slack_webhook=None, report_url=None, demo_noise=True
@@ -100,10 +102,12 @@ def test_regression_against_clean_baseline_is_critical_and_exits_one(tmp_path: P
 def test_promote_baseline_rejects_dataset_version_mismatch(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
-    run_id = list_recent_runs(p.db_path, dataset_version="1", limit=1)[0].run_id
+    run_id = list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=1)[0].run_id
     stored = p.runs_dir / f"{run_id}.json"
     stored.write_text(
-        stored.read_text().replace('"dataset_version": "1"', '"dataset_version": "99"')
+        stored.read_text().replace(
+            f'"dataset_version": "{DATASET_VERSION}"', '"dataset_version": "99"'
+        )
     )
     assert command_promote_baseline(p, run_id) == 1
     assert not p.baseline_path.exists()
@@ -142,7 +146,7 @@ def test_compare_models_unpriced_candidate_fails_before_any_model_call(tmp_path:
 
 def _bless_clean_baseline(p: EvalPaths) -> str:
     command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
-    run_id = list_recent_runs(p.db_path, dataset_version="1", limit=1)[0].run_id
+    run_id = list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=1)[0].run_id
     assert command_promote_baseline(p, run_id) == 0
     return run_id
 
@@ -157,7 +161,9 @@ def test_stored_run_records_diff_verdict(tmp_path: Path) -> None:
     command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None, demo_noise=True)
     # Both runs land in the same second, so recency order is a coin toss: compare as a set.
     # Before the fix both were stored as the PASS placeholder.
-    stored = {r.status for r in list_recent_runs(p.db_path, dataset_version="1", limit=2)}
+    stored = {
+        r.status for r in list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=2)
+    }
     assert stored == {RunStatus.PASS, RunStatus.CRITICAL}
 
 
@@ -188,7 +194,7 @@ def _prefill(history: Path, baseline_id: str, pass_rate: float) -> None:
                 model_id="fake",
                 # Must match a real fake run, or the model/prompt filter (rightly) drops it.
                 prompt_label="receipt_categorizer@1",
-                dataset_version="1",
+                dataset_version=DATASET_VERSION,
                 baseline_run_id=baseline_id,
                 case_count=56,
                 pass_rate=pass_rate,

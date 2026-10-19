@@ -1,0 +1,27 @@
+id: fixture_pdf_native_0001_dining_easy
+difficulty: easy
+source: synthetic
+notes: PDF with a text layer; rendered from synthetic_0001_dining_easy
+email_date: '2026-08-18'
+receipt_text: 'BLUE BOTTLE COFFEE
+
+  08/17/2026
+
+  Latte                   $   50.23
+
+  TOTAL                   $   50.23
+
+  '
+expected:
+  vendor: Blue Bottle Coffee
+  total: '50.23'
+  currency: USD
+  date: '2026-08-17'
+  category: dining
+  line_items:
+  - description: Latte
+    amount: '50.23'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
+fixture: fixtures/fixture_pdf_native_0001_dining_easy.pdf

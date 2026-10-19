@@ -1,0 +1,39 @@
+id: fixture_pdf_scanned_0010_transport_easy
+difficulty: hard
+source: synthetic
+notes: scanned PDF, OCR; rendered from synthetic_0010_transport_easy
+email_date: '2026-08-24'
+receipt_text: 'BART
+
+  08/23/2026
+
+  Ride fare               $   12.08
+
+  Unleaded 9.8 gal        $      49
+
+  Clipper reload          $   26.06
+
+  Tax                     $    2.59
+
+  TOTAL                   $   89.73
+
+  '
+expected:
+  vendor: BART
+  total: '89.73'
+  currency: USD
+  date: '2026-08-23'
+  category: transport
+  line_items:
+  - description: Ride fare
+    amount: '12.08'
+  - description: Unleaded 9.8 gal
+    amount: '49'
+  - description: Clipper reload
+    amount: '26.06'
+  - description: Tax
+    amount: '2.59'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
+fixture: fixtures/fixture_pdf_scanned_0010_transport_easy.pdf
