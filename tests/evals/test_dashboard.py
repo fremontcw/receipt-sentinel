@@ -43,8 +43,12 @@ def test_hostile_strings_escaped_and_bad_links_dropped() -> None:
 
 
 def test_no_script_and_baseline_change_marked() -> None:
-    history: list[HistoryRecord] = [night(0.98, baseline="b1"), night(0.97, baseline="b1"),
-                                    night(0.99, baseline="b2"), night(0.99, baseline="b2")]
+    history: list[HistoryRecord] = [
+        night(0.98, baseline="b1"),
+        night(0.97, baseline="b1"),
+        night(0.99, baseline="b2"),
+        night(0.99, baseline="b2"),
+    ]
     page = render_dashboard_html(history, repo_url=REPO)
     assert "<script" not in page
     assert page.count('class="baseline-change"') == 1

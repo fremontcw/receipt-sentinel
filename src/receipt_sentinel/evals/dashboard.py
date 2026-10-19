@@ -35,7 +35,9 @@ TABLE_NIGHTS = 90
 SAFE_LINK_PREFIX = "https://github.com/"
 KNOWN_STATUSES = {"PASS", "WARN", "CRITICAL"}
 
-DASHBOARD_STYLE = STYLE + """
+DASHBOARD_STYLE = (
+    STYLE
+    + """
 body{max-width:960px;margin:2rem auto;padding:0 16px}
 .pipeline{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:1rem 0}
 .step{border:1px solid #ccc;border-radius:.4rem;padding:.4rem .6rem}
@@ -46,6 +48,7 @@ border:1px solid #ddd;border-radius:.5rem}
 .muted{color:#666}a{overflow-wrap:anywhere}
 @media (max-width:600px){body{margin:1rem auto}td,th{padding:.3rem .4rem}}
 """
+)
 
 
 def _link(url: str | None, text: str) -> str:

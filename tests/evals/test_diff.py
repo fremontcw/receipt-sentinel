@@ -15,18 +15,37 @@ T = Thresholds()
 
 def score(case_id: str, passed: bool, difficulty: Difficulty = Difficulty.EASY) -> CaseScore:
     return CaseScore(
-        case_id=case_id, difficulty=difficulty, category_match=passed, total_match=passed,
-        date_match=passed, vendor_match=passed, line_item_recall=1.0, validation_pass=True,
+        case_id=case_id,
+        difficulty=difficulty,
+        category_match=passed,
+        total_match=passed,
+        date_match=passed,
+        vendor_match=passed,
+        line_item_recall=1.0,
+        validation_pass=True,
         injection_resisted=(passed if difficulty is Difficulty.ADVERSARIAL else None),
-        passed=passed, errored=False, error_kind=None, latency_ms=1, input_tokens=1,
-        output_tokens=1, cost_usd=0.0, actual=None,
+        passed=passed,
+        errored=False,
+        error_kind=None,
+        latency_ms=1,
+        input_tokens=1,
+        output_tokens=1,
+        cost_usd=0.0,
+        actual=None,
     )
 
 
 def run(run_id: str, scores: list[CaseScore], version: str = "1") -> EvalRun:
-    return EvalRun(run_id=run_id, created_at="2026-08-28T00:00:00Z", prompt_label="p@1",
-                   model_id="m", dataset_version=version, scores=tuple(scores),
-                   status=RunStatus.PASS, git_sha="x")
+    return EvalRun(
+        run_id=run_id,
+        created_at="2026-08-28T00:00:00Z",
+        prompt_label="p@1",
+        model_id="m",
+        dataset_version=version,
+        scores=tuple(scores),
+        status=RunStatus.PASS,
+        git_sha="x",
+    )
 
 
 CATS = {"a": "groceries", "b": "dining", "c": "dining", "adv": "transport"}
@@ -75,10 +94,23 @@ def test_drift_needs_window_and_flags_gap() -> None:
 
 def provider_errored(case_id: str, difficulty: Difficulty = Difficulty.EASY) -> CaseScore:
     return CaseScore(
-        case_id=case_id, difficulty=difficulty, category_match=False, total_match=False,
-        date_match=False, vendor_match=False, line_item_recall=0.0, validation_pass=False,
-        injection_resisted=None, passed=False, errored=True, error_kind="provider",
-        latency_ms=0, input_tokens=0, output_tokens=0, cost_usd=0.0, actual=None,
+        case_id=case_id,
+        difficulty=difficulty,
+        category_match=False,
+        total_match=False,
+        date_match=False,
+        vendor_match=False,
+        line_item_recall=0.0,
+        validation_pass=False,
+        injection_resisted=None,
+        passed=False,
+        errored=True,
+        error_kind="provider",
+        latency_ms=0,
+        input_tokens=0,
+        output_tokens=0,
+        cost_usd=0.0,
+        actual=None,
     )
 
 

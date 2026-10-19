@@ -21,11 +21,24 @@ from tests.evals.test_diff import T, run, score
 
 def night(pass_rate: float, *, version: str = "1", baseline: str = "b1") -> ScoredNight:
     return ScoredNight(
-        kind="scored", schema_version=HISTORY_SCHEMA_VERSION, created_at="2026-10-17T06:00:00Z",
-        run_url=None, model_id="m", prompt_label="p@1", dataset_version=version,
-        baseline_run_id=baseline, case_count=56, pass_rate=pass_rate, delta_points=0.0,
-        regressions=0, adversarial_failures=0, cost_usd=0.19, p50_latency_ms=1500,
-        status="PASS", drifting=False, drift_gap_points=None,
+        kind="scored",
+        schema_version=HISTORY_SCHEMA_VERSION,
+        created_at="2026-10-17T06:00:00Z",
+        run_url=None,
+        model_id="m",
+        prompt_label="p@1",
+        dataset_version=version,
+        baseline_run_id=baseline,
+        case_count=56,
+        pass_rate=pass_rate,
+        delta_points=0.0,
+        regressions=0,
+        adversarial_failures=0,
+        cost_usd=0.19,
+        p50_latency_ms=1500,
+        status="PASS",
+        drifting=False,
+        drift_gap_points=None,
     )
 
 

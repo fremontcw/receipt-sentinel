@@ -73,8 +73,9 @@ def test_provider_unstable_run_exits_zero_saves_nothing_but_writes_summary(
             raise LlmTransientError("down")
 
     p = paths_in(tmp_path)
-    code = command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None,
-                             client_override=Flaky())
+    code = command_evals_run(
+        p, fake=True, save=True, slack_webhook=None, report_url=None, client_override=Flaky()
+    )
     assert code == 0
     assert list_recent_runs(p.db_path, dataset_version="1", limit=5) == []
     assert (p.report_path.parent / "summary.md").exists()
@@ -87,8 +88,9 @@ def test_regression_against_clean_baseline_is_critical_and_exits_one(tmp_path: P
     command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
     run_id = list_recent_runs(p.db_path, dataset_version="1", limit=1)[0].run_id
     assert command_promote_baseline(p, run_id) == 0
-    code = command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None,
-                             demo_noise=True)
+    code = command_evals_run(
+        p, fake=True, save=True, slack_webhook=None, report_url=None, demo_noise=True
+    )
     assert code == 1
     assert "CRITICAL" in (p.report_path.parent / "summary.md").read_text()
     # The nightly workflow branches on this file, not on parsing summary.md.
@@ -100,8 +102,9 @@ def test_promote_baseline_rejects_dataset_version_mismatch(tmp_path: Path) -> No
     command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None)
     run_id = list_recent_runs(p.db_path, dataset_version="1", limit=1)[0].run_id
     stored = p.runs_dir / f"{run_id}.json"
-    stored.write_text(stored.read_text().replace('"dataset_version": "1"',
-                                                 '"dataset_version": "99"'))
+    stored.write_text(
+        stored.read_text().replace('"dataset_version": "1"', '"dataset_version": "99"')
+    )
     assert command_promote_baseline(p, run_id) == 1
     assert not p.baseline_path.exists()
 
@@ -151,8 +154,7 @@ def _out(p: EvalPaths, name: str) -> str:
 def test_stored_run_records_diff_verdict(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     _bless_clean_baseline(p)
-    command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None,
-                      demo_noise=True)
+    command_evals_run(p, fake=True, save=True, slack_webhook=None, report_url=None, demo_noise=True)
     # Both runs land in the same second, so recency order is a coin toss: compare as a set.
     # Before the fix both were stored as the PASS placeholder.
     stored = {r.status for r in list_recent_runs(p.db_path, dataset_version="1", limit=2)}
@@ -163,8 +165,12 @@ def test_history_run_appends_scored_night(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     baseline_id = _bless_clean_baseline(p)
     history = tmp_path / "h.jsonl"
-    assert command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
-                             history_path=history) == 0
+    assert (
+        command_evals_run(
+            p, fake=True, save=False, slack_webhook=None, report_url=None, history_path=history
+        )
+        == 0
+    )
     [record] = load_history(history)
     assert isinstance(record, ScoredNight) and record.baseline_run_id == baseline_id
     assert _out(p, "drift") == "steady\n"
@@ -172,24 +178,42 @@ def test_history_run_appends_scored_night(tmp_path: Path) -> None:
 
 def _prefill(history: Path, baseline_id: str, pass_rate: float) -> None:
     for _ in range(7):
-        append_history(history, ScoredNight(
-            kind="scored", schema_version=HISTORY_SCHEMA_VERSION,
-            created_at="2026-10-01T06:00:00Z", run_url=None, model_id="fake",
-            # Must match a real fake run, or the model/prompt filter (rightly) drops it.
-            prompt_label="receipt_categorizer@1", dataset_version="1",
-            baseline_run_id=baseline_id,
-            case_count=56, pass_rate=pass_rate, delta_points=0.0, regressions=0,
-            adversarial_failures=0, cost_usd=0.0, p50_latency_ms=1, status="PASS",
-            drifting=False, drift_gap_points=None,
-        ))
+        append_history(
+            history,
+            ScoredNight(
+                kind="scored",
+                schema_version=HISTORY_SCHEMA_VERSION,
+                created_at="2026-10-01T06:00:00Z",
+                run_url=None,
+                model_id="fake",
+                # Must match a real fake run, or the model/prompt filter (rightly) drops it.
+                prompt_label="receipt_categorizer@1",
+                dataset_version="1",
+                baseline_run_id=baseline_id,
+                case_count=56,
+                pass_rate=pass_rate,
+                delta_points=0.0,
+                regressions=0,
+                adversarial_failures=0,
+                cost_usd=0.0,
+                p50_latency_ms=1,
+                status="PASS",
+                drifting=False,
+                drift_gap_points=None,
+            ),
+        )
 
 
 def test_drifting_history_exits_one_and_writes_drift(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     history = tmp_path / "h.jsonl"
     _prefill(history, _bless_clean_baseline(p), 0.80)
-    assert command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
-                             history_path=history) == 1
+    assert (
+        command_evals_run(
+            p, fake=True, save=False, slack_webhook=None, report_url=None, history_path=history
+        )
+        == 1
+    )
     assert _out(p, "drift") == "drifting\n"
     assert _out(p, "status") == "PASS\n"
     newest = load_history(history)[-1]
@@ -201,8 +225,12 @@ def test_history_ignores_nights_from_an_old_baseline(tmp_path: Path) -> None:
     _bless_clean_baseline(p)
     history = tmp_path / "h.jsonl"
     _prefill(history, "old", 0.80)
-    assert command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
-                             history_path=history) == 0
+    assert (
+        command_evals_run(
+            p, fake=True, save=False, slack_webhook=None, report_url=None, history_path=history
+        )
+        == 0
+    )
     assert _out(p, "drift") == "steady\n"
 
 
@@ -213,8 +241,15 @@ def test_provider_unstable_with_history_appends_unscored(tmp_path: Path) -> None
 
     p = paths_in(tmp_path)
     history = tmp_path / "h.jsonl"
-    command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
-                      client_override=Flaky(), history_path=history)
+    command_evals_run(
+        p,
+        fake=True,
+        save=False,
+        slack_webhook=None,
+        report_url=None,
+        client_override=Flaky(),
+        history_path=history,
+    )
     [record] = load_history(history)
     assert isinstance(record, UnscoredNight) and record.reason.startswith("provider unstable")
 
@@ -230,8 +265,9 @@ def test_public_run_omits_report_when_golden_set_has_real_case(tmp_path: Path) -
     assert (p.report_path.parent / "summary.md").exists()
 
     synthetic = paths_in(tmp_path / "synthetic")
-    command_evals_run(synthetic, fake=True, save=False, slack_webhook=None, report_url=None,
-                      public=True)
+    command_evals_run(
+        synthetic, fake=True, save=False, slack_webhook=None, report_url=None, public=True
+    )
     assert synthetic.report_path.exists()
 
 
@@ -245,8 +281,14 @@ def test_record_skip_appends_reason(tmp_path: Path) -> None:
 def test_unjudged_drift_is_said_in_the_summary(tmp_path: Path) -> None:
     p = paths_in(tmp_path)
     _bless_clean_baseline(p)
-    command_evals_run(p, fake=True, save=False, slack_webhook=None, report_url=None,
-                      history_path=tmp_path / "h.jsonl")
+    command_evals_run(
+        p,
+        fake=True,
+        save=False,
+        slack_webhook=None,
+        report_url=None,
+        history_path=tmp_path / "h.jsonl",
+    )
     assert "drift: not judged yet" in _out(p, "summary.md")
 
 

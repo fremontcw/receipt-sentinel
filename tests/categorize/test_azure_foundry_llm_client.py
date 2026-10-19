@@ -9,9 +9,14 @@ from receipt_sentinel.evals.eval_commands import build_client
 
 REQ = LlmRequest(system="sys", user="receipt", max_tokens=64, model_id="claude-sonnet-5")
 MESSAGE_REPLY = {
-    "id": "msg_1", "type": "message", "role": "assistant", "model": "claude-sonnet-5",
-    "content": [{"type": "text", "text": '{"ok": true}'}], "stop_reason": "end_turn",
-    "stop_sequence": None, "usage": {"input_tokens": 12, "output_tokens": 5},
+    "id": "msg_1",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-sonnet-5",
+    "content": [{"type": "text", "text": '{"ok": true}'}],
+    "stop_reason": "end_turn",
+    "stop_sequence": None,
+    "usage": {"input_tokens": 12, "output_tokens": 5},
 }
 
 
@@ -23,7 +28,8 @@ async def test_requests_go_to_the_foundry_endpoint_with_the_foundry_key() -> Non
         return httpx2.Response(200, json=MESSAGE_REPLY)
 
     client = build_azure_foundry_llm_client(
-        resource="demo-resource", api_key="test-key",
+        resource="demo-resource",
+        api_key="test-key",
         http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(foundry)),
     )
     response = await client.complete(REQ)
@@ -39,8 +45,11 @@ async def test_requests_go_to_the_foundry_endpoint_with_the_foundry_key() -> Non
 def test_azure_provider_without_credentials_says_what_to_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    for name in ("ANTHROPIC_FOUNDRY_API_KEY", "ANTHROPIC_FOUNDRY_RESOURCE",
-                 "ANTHROPIC_FOUNDRY_BASE_URL"):
+    for name in (
+        "ANTHROPIC_FOUNDRY_API_KEY",
+        "ANTHROPIC_FOUNDRY_RESOURCE",
+        "ANTHROPIC_FOUNDRY_BASE_URL",
+    ):
         monkeypatch.delenv(name, raising=False)
     with pytest.raises(SystemExit, match="ANTHROPIC_FOUNDRY_API_KEY"):
         build_client(fake=False, demo_noise=False, cases=[], provider="azure")

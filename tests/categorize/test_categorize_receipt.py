@@ -78,9 +78,7 @@ async def test_long_receipt_is_truncated() -> None:
         return json.dumps(GOOD)
 
     client = FakeLlmClient(responder)
-    await categorize_receipt(
-        "A" * (MAX_RECEIPT_CHARS + 500), PROMPT, client, model_id="m"
-    )
+    await categorize_receipt("A" * (MAX_RECEIPT_CHARS + 500), PROMPT, client, model_id="m")
     assert len(seen[0].user) < MAX_RECEIPT_CHARS + len(PROMPT.system) + 2000
 
 

@@ -156,9 +156,7 @@ def diff_against_baseline(
 def compute_drift(
     recent_runs: list[EvalRun], baseline: EvalRun, thresholds: Thresholds
 ) -> DriftResult | None:
-    return drift_from_pass_rates(
-        [r.pass_rate for r in recent_runs], baseline.pass_rate, thresholds
-    )
+    return drift_from_pass_rates([r.pass_rate for r in recent_runs], baseline.pass_rate, thresholds)
 
 
 def drift_from_pass_rates(

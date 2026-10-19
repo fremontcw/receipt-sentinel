@@ -28,8 +28,7 @@ def build_slack_payload(
         f"{emoji} *Receipt Sentinel evals: {diff.status.value}*",
         f"prompt `{current.prompt_label}` · model `{current.model_id}` · "
         f"dataset v{current.dataset_version}",
-        f"pass rate {current.pass_rate:.1%} ({diff.pass_rate_delta_points:+.1f} pts "
-        f"vs baseline)",
+        f"pass rate {current.pass_rate:.1%} ({diff.pass_rate_delta_points:+.1f} pts vs baseline)",
         f"regressions {len(diff.regressions)} · improvements {len(diff.improvements)} · "
         f"adversarial failures {diff.adversarial_failures}",
         f"cost ${current.total_cost_usd:.3f} · p50 {current.p50_latency_ms} ms",
