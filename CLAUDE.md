@@ -60,8 +60,13 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    §4.1), `validate/` (sum, date window, ISO 4217; duplicates wait for step 8), 11 PDF/photo golden
    fixtures, dataset v2, `POST /categorize/file`. Real v2 baseline 97.0% after deskew ($0.22/run; CI runs ~95.5%, model variance on synthetic_0032). Photo deskew
    landed 2026-10-19 (projection-profile, ±5°). Open: 7 deferred review minors listed in PR #4.
-   Tesseract is now required for evals/demo (CI installs it). Steps 7–9 (ingest + allowlist,
-   checklist, Docker) still to plan via `superpowers:writing-plans`.
+   Tesseract is now required for evals/demo (CI installs it). Step 7 done 2026-10-19 (plan
+   `docs/superpowers/plans/2026-10-19-ingest-and-allowlist.md`): `ingest/` (.eml + Gmail readonly sources,
+   header-first parsing, allowlist = exact address/domain AND topmost mx.google.com DMARC pass parsed
+   structurally), `sentinel ingest` (prints, stores nothing), `sentinel allowlist add`, `make ingest-demo`.
+   Author action: first real `--gmail` run needs a Google Cloud Desktop OAuth client saved as
+   `credentials.json`. Steps 8–9 (checklist propose/confirm + SQLite incl. duplicates/allowlist_events,
+   Docker) still to plan via `superpowers:writing-plans`.
 
 **Environment:**
 
