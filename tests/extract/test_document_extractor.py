@@ -14,6 +14,7 @@ from receipt_sentinel.evals.synthetic_fixture_renderer import (
     render_scanned_pdf,
 )
 from receipt_sentinel.extract.document_extractor import (
+    estimate_skew_degrees,
     extract_document,
     extract_document_in_process,
 )
@@ -140,18 +141,7 @@ COLUMNS_RECEIPT = (
 
 
 @needs_tesseract
-@pytest.mark.parametrize(
-    "render",
-    [
-        render_scanned_pdf,
-        pytest.param(
-            _tilted_photo,
-            marks=pytest.mark.xfail(
-                strict=True, reason="no deskew yet: a 2.5° tilt drifts rows on wide receipts"
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("render", [render_scanned_pdf, _tilted_photo])
 def test_ocr_keeps_each_amount_on_its_label_line(render: Callable[[str], bytes]) -> None:
     # Found by the first real v2 eval: default page segmentation read labels and amounts
     # as separate columns, so the model could not tell which number was the total
@@ -161,3 +151,12 @@ def test_ocr_keeps_each_amount_on_its_label_line(render: Callable[[str], bytes])
     # Tesseract versions spell words differently (CI's 5.3 read "Ibuprofen" otherwise);
     # what matters is that the amount shares a line with its item
     assert any("47.41" in line and "profen" in line for line in lines)
+
+
+@pytest.mark.parametrize("tilt", [-4.0, -2.5, 0.0, 1.5, 3.0])
+def test_skew_estimate_recovers_the_tilt(tilt: float) -> None:
+    upright = render_photo_jpeg(
+        COLUMNS_RECEIPT, rotate_degrees=0, blur_radius=0, exif_orientation=None
+    )
+    tilted = Image.open(io.BytesIO(upright)).rotate(tilt, expand=True, fillcolor="white")
+    assert estimate_skew_degrees(tilted) == pytest.approx(tilt, abs=0.5)
