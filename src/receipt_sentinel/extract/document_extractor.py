@@ -7,15 +7,15 @@ attachment caps first, and runs in a worker process killed at the 30 s limit.
 Status:
     None
 Issues:
-    No deskew: a tilted phone photo of a wide receipt can drift rows together under OCR
-    (golden case fixture_photo_0002 fails on it).
+    None
 Todo:
-    - [ ] Deskew photos before OCR (projection-profile angle search)
+    None
 """
 
 import io
 import json
 import logging
+import statistics
 import subprocess
 import sys
 import time
@@ -42,6 +42,12 @@ OCR_DPI = 300
 # psm 6 = one uniform block of text. The default (auto layout) reads a receipt's label and
 # amount columns as separate blocks, so the total ends up lines away from "TOTAL"
 OCR_CONFIG = "--psm 6"
+SKEW_SEARCH_DEGREES = 5.0
+SKEW_STEP_DEGREES = 0.25
+SKEW_SAMPLE_WIDTH = 600
+SKEW_INK_THRESHOLD = 128
+# Below this, rotating (and resampling) costs more legibility than the tilt does
+SKEW_MIN_CORRECTION_DEGREES = 0.5
 # Interpreter start-up + imports in the worker, on top of the document's own time limit
 WORKER_STARTUP_GRACE_SECONDS = 5.0
 WORKER_MODULE = "receipt_sentinel.extract.extraction_worker"
@@ -204,7 +210,41 @@ def _open_image(data: bytes) -> Image.Image:
     return upright if upright.mode in _OCR_IMAGE_MODES else upright.convert("RGB")
 
 
+def estimate_skew_degrees(image: Image.Image) -> float:
+    """Counter-clockwise tilt of the text rows, in degrees (projection-profile search).
+
+    Undoes each candidate tilt on a small black-and-white copy and keeps the angle where
+    row darkness varies most: straight rows give sharp ink/gap stripes, tilted rows smear.
+    Searches ±5° in 0.25° steps; a sideways photo is EXIF's job, not this.
+    """
+    gray = image.convert("L")
+    scale = min(1.0, SKEW_SAMPLE_WIDTH / gray.width)
+    small = gray.resize((max(1, int(gray.width * scale)), max(1, int(gray.height * scale))))
+    ink = small.point(lambda value: 255 if value < SKEW_INK_THRESHOLD else 0)
+    steps = round(SKEW_SEARCH_DEGREES / SKEW_STEP_DEGREES)
+    best_angle, best_score = 0.0, -1.0
+    for step in range(-steps, steps + 1):
+        angle = step * SKEW_STEP_DEGREES
+        rotated = ink.rotate(-angle, expand=True, fillcolor=0)
+        # Width-1 BOX resize = mean ink per row, done in C
+        column = rotated.resize((1, rotated.height), Image.Resampling.BOX)
+        row_means = [float(str(value)) for value in column.get_flattened_data()]
+        score = statistics.pvariance(row_means)
+        if score > best_score:
+            best_angle, best_score = angle, score
+    return best_angle
+
+
+def _deskew(image: Image.Image) -> Image.Image:
+    angle = estimate_skew_degrees(image)
+    if abs(angle) < SKEW_MIN_CORRECTION_DEGREES:
+        return image
+    return image.rotate(-angle, expand=True, fillcolor="white", resample=Image.Resampling.BICUBIC)
+
+
 def _ocr_image(image: Image.Image, deadline: float) -> tuple[str, float | None]:
+    # A hand-held photo is never level, and Tesseract's line finding drifts on wide receipts
+    image = _deskew(image)
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise ExtractionRejected("timeout", "reading the file took too long")

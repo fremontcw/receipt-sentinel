@@ -338,7 +338,6 @@ Per the design spec's build order (steps 1–5 are this harness; 6–9 are the
 feature it will eventually gate more of):
 
 6. ~~Extract layer, validate layer, PDF/image golden fixtures~~ done.
-   Next on it: deskew phone photos before OCR (one golden photo fails on tilt).
 7. Ingest: `.eml` fixture source, then the Gmail API source with a sender
    allowlist.
 8. Checklist propose/confirm (SQLite, user-confirmed persistence only).
