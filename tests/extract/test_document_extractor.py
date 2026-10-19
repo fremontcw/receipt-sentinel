@@ -158,4 +158,6 @@ def test_ocr_keeps_each_amount_on_its_label_line(render: Callable[[str], bytes])
     lines = extract_document(render(COLUMNS_RECEIPT)).text.splitlines()
     total_line = next(line for line in lines if "TOTAL" in line)
     assert "113.66" in total_line
-    assert "47.41" in next(line for line in lines if "Ibuprofen" in line)
+    # Tesseract versions spell words differently (CI's 5.3 read "Ibuprofen" otherwise);
+    # what matters is that the amount shares a line with its item
+    assert any("47.41" in line and "profen" in line for line in lines)
