@@ -220,6 +220,13 @@ one with a tip, and a prompt-injection attack, which comes back flagged
 receipts with the real model. It listens on `127.0.0.1` only, so there is no auth,
 and nothing is stored.
 
+`POST /categorize/file` takes the receipt as a file instead: a PDF, PNG or JPEG photo
+(10 MB / 20 pages max). The response says how the text was read, from the PDF's text
+layer (`native`) or by OCR (`ocr`, with Tesseract's confidence). Keyless, upload one of
+the golden fixtures in `src/receipt_sentinel/evals/golden/fixtures/`; the phone photo of
+the prompt-injection receipt is the good one. OCR needs Tesseract:
+`brew install tesseract` (macOS) or `apt-get install tesseract-ocr` (Linux).
+
 **Same model on Azure (Microsoft Foundry):**
 
 ```bash
@@ -294,10 +301,16 @@ branch → `gh-pages` / root.
 
 ## Trade-offs
 
-- **Text-only fixtures.** The golden dataset feeds pre-extracted receipt
-  text directly; PDF/image fixtures and the PyMuPDF/OCR extract layer
-  arrive in a later plan, so the harness today gates the categorize step
-  only, not extraction quality.
+- **Rendered, not photographed, fixtures.** 11 golden cases are PDFs,
+  scanned PDFs and tilted, blurred phone photos, so CI gates extraction as
+  well as categorization. They are rendered from text, so glare, creases and
+  faded thermal paper are not covered until real redacted receipts land.
+- **OCR output varies by Tesseract version.** Each run feeds the model what
+  that machine's Tesseract reads, so a real baseline is tied to the CI
+  runner's Tesseract; a version bump there can move OCR-case scores.
+- **PyMuPDF is AGPL-3.0.** Fine for a public repo, including when hosted
+  (the source is already public); a closed-source fork would need to swap it
+  for `pypdf` + `pypdfium2`.
 - **No `temperature` pinned.** The design called for `temperature=0` for
   determinism, but the installed SDK/model combination doesn't accept
   sampling parameters on this call — determinism instead comes from
