@@ -108,3 +108,25 @@ def test_allowlist_file_entries_are_lowercased(tmp_path: Path) -> None:
     path.write_text("addresses: [Receipts@Shop.com]\ndomains: [Shop.COM]\n")
     allowlist = load_sender_allowlist(path)
     assert allowlist.addresses == {"receipts@shop.com"} and allowlist.domains == {"shop.com"}
+
+
+def test_dmarc_lookalike_text_in_another_clause_is_ignored() -> None:
+    # The SPF comment and smtp.mailfrom echo the envelope sender, which the sender chooses,
+    # and a quoted local part may hold spaces; only the dmarc clause itself counts
+    envelope = '"dmarc=pass header.from=shop.com x"@evil.io'
+    header = (
+        f"mx.google.com; spf=pass (google.com: domain of {envelope} designates 1.2.3.4 as"
+        f" permitted sender) smtp.mailfrom={envelope}; dmarc=fail (p=NONE) header.from=shop.com"
+    )
+    assert _decide("receipts@shop.com", [header]) == (False, "no DMARC pass from trusted server")
+
+
+def test_dmarc_comment_cannot_supply_the_header_from() -> None:
+    header = "mx.google.com; dmarc=pass (header.from=shop.com ) header.from=evil.io"
+    assert _decide("receipts@shop.com", [header]) == (False, "no DMARC pass from trusted server")
+
+
+def test_semicolon_inside_a_quoted_envelope_cannot_start_a_fake_clause() -> None:
+    envelope = '"a;dmarc=pass header.from=shop.com x"@evil.io'
+    header = f"mx.google.com; spf=pass smtp.mailfrom={envelope}; dmarc=fail header.from=shop.com"
+    assert _decide("receipts@shop.com", [header]) == (False, "no DMARC pass from trusted server")

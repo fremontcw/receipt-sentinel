@@ -13,7 +13,6 @@ Todo:
     None
 """
 
-import re
 from dataclasses import dataclass
 from email import policy
 from email.headerregistry import Address
@@ -24,8 +23,6 @@ import yaml
 from receipt_sentinel.ingest.inbound_message import MessageHeaders
 
 DEFAULT_TRUSTED_AUTHSERV_ID = "mx.google.com"
-_DMARC_RESULT = re.compile(r"\bdmarc=([a-z]+)", re.IGNORECASE)
-_DMARC_HEADER_FROM = re.compile(r"\bheader\.from=([^\s;]+)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -90,15 +87,52 @@ def _trusted_dmarc_pass(
     # Receiving servers prepend their verdict, so the topmost header from our server is the
     # real one; anything below it could have been written by the sender
     for result in authentication_results:
-        authserv_id = result.split(";", 1)[0].strip().split(" ", 1)[0].lower()
+        clauses = _structural_text(result).split(";")
+        authserv_id = (clauses[0].split() or [""])[0].lower()
         if authserv_id != allowlist.trusted_authserv_id.lower():
             continue
-        verdict = _DMARC_RESULT.search(result)
-        header_from = _DMARC_HEADER_FROM.search(result)
-        return (
-            verdict is not None
-            and verdict.group(1).lower() == "pass"
-            and header_from is not None
-            and header_from.group(1).lower() == domain
-        )
+        return _dmarc_clause_passes(clauses[1:], domain)
     return False
+
+
+def _dmarc_clause_passes(clauses: list[str], domain: str) -> bool:
+    for clause in clauses:
+        tokens = clause.split()
+        if not tokens or not tokens[0].lower().startswith("dmarc="):
+            continue
+        properties = dict(token.split("=", 1) for token in tokens[1:] if "=" in token)
+        header_from = properties.get("header.from", "").lower()
+        return tokens[0][len("dmarc=") :].lower() == "pass" and header_from == domain
+    return False
+
+
+def _structural_text(header: str) -> str:
+    """The header with comments removed and quoted strings blanked to "" (RFC 8601 / 5322).
+
+    Comments and quoted strings echo sender-chosen text (the envelope address in an SPF
+    comment, a quoted local part); blanking them keeps their `;` and `dmarc=` from being
+    read as structure.
+    """
+    out: list[str] = []
+    depth, quoted, escaped = 0, False, False
+    for char in header:
+        if escaped:
+            escaped = False
+        elif char == "\\" and (quoted or depth):
+            escaped = True
+        elif quoted:
+            if char == '"':
+                quoted = False
+                out.append('"')
+        elif char == "(":
+            depth += 1
+        elif char == ")" and depth:
+            depth -= 1
+        elif depth:
+            continue
+        elif char == '"':
+            quoted = True
+            out.append('"')
+        else:
+            out.append(char)
+    return "".join(out)
