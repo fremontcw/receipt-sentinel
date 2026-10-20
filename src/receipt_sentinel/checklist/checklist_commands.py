@@ -14,6 +14,7 @@ Todo:
 import json
 import sqlite3
 import sys
+from collections import Counter
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -176,7 +177,8 @@ def confirm_checklist(
             confirmed, an accepted item is a flagged duplicate, or the store rejected the
             write. Nothing is written in any of these cases.
     """
-    accepted = _check_decisions(conn, proposal, decisions)
+    accepted = check_decisions_fit_proposal(proposal, decisions)
+    _check_store_still_fits(conn, proposal, accepted)
     try:
         with conn:  # one transaction: commits on success, rolls back on any exception
             cursor = conn.execute(
@@ -201,9 +203,15 @@ def confirm_checklist(
     return checklist_id
 
 
-def _check_decisions(
-    conn: sqlite3.Connection, proposal: ChecklistProposal, decisions: ChecklistDecisions
+def check_decisions_fit_proposal(
+    proposal: ChecklistProposal, decisions: ChecklistDecisions
 ) -> list[ChecklistItem]:
+    """The checks that need only the proposal; returns the accepted items.
+
+    Raises:
+        ChecklistConfirmRefused: Wrong proposal, unknown or repeated ids, an id both
+            accepted and rejected, or an accepted flagged duplicate.
+    """
     if decisions.proposal_id != proposal.proposal_id:
         raise ChecklistConfirmRefused(
             f"decisions are for {decisions.proposal_id}, not {proposal.proposal_id}"
@@ -215,8 +223,14 @@ def _check_decisions(
     both = sorted(set(decisions.accepted_ids) & set(decisions.rejected_ids))
     if both:
         raise ChecklistConfirmRefused(f"both accepted and rejected: {', '.join(both)}")
-    if checklist_exists(conn, proposal.proposal_id):
-        raise ChecklistConfirmRefused(f"{proposal.proposal_id} is already confirmed")
+    repeated = sorted(
+        item_id
+        for ids in (decisions.accepted_ids, decisions.rejected_ids)
+        for item_id, count in Counter(ids).items()
+        if count > 1
+    )
+    if repeated:
+        raise ChecklistConfirmRefused(f"listed more than once: {', '.join(repeated)}")
     duplicates = [
         i
         for i in decisions.accepted_ids
@@ -226,17 +240,22 @@ def _check_decisions(
         raise ChecklistConfirmRefused(
             f"accepted item(s) flagged as duplicates: {', '.join(duplicates)}; reject them first"
         )
+    return [by_id[i] for i in decisions.accepted_ids]
+
+
+def _check_store_still_fits(
+    conn: sqlite3.Connection, proposal: ChecklistProposal, accepted: list[ChecklistItem]
+) -> None:
+    if checklist_exists(conn, proposal.proposal_id):
+        raise ChecklistConfirmRefused(f"{proposal.proposal_id} is already confirmed")
     # The store may have changed since propose ran (another proposal confirmed meanwhile)
-    stored = confirmed_receipt_dates_by_key(
-        conn, (by_id[i].dedup_key for i in decisions.accepted_ids)
-    )
-    now_duplicate = [i for i in decisions.accepted_ids if by_id[i].dedup_key in stored]
+    stored = confirmed_receipt_dates_by_key(conn, (item.dedup_key for item in accepted))
+    now_duplicate = [item.item_id for item in accepted if item.dedup_key in stored]
     if now_duplicate:
         raise ChecklistConfirmRefused(
             f"already stored since this proposal was made: {', '.join(now_duplicate)}; "
             "propose again"
         )
-    return [by_id[i] for i in decisions.accepted_ids]
 
 
 def _insert_receipt(conn: sqlite3.Connection, checklist_id: int, item: ChecklistItem) -> None:
@@ -289,6 +308,8 @@ def command_checklist_confirm(
             accepted = tuple(accept or ())
             rejected = tuple(i.item_id for i in proposal.items if i.item_id not in accepted)
             decisions = ChecklistDecisions(proposal_id, accepted, rejected, "cli-ids")
+        # Refuse what the proposal alone can refuse before the store file is created
+        check_decisions_fit_proposal(proposal, decisions)
         with closing(open_receipt_store(store_path)) as conn:
             checklist_id = confirm_checklist(conn, proposal, decisions)
     except ChecklistConfirmRefused as err:

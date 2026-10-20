@@ -26,6 +26,7 @@ output=$(make container-demo)
 grep -q "CRITICAL regression rendered as intended" <<<"$output" || fail "3 demo: $output"
 [ -f runs/demo/report.html ] || fail "3 no runs/demo/report.html on the host"
 [ "$(owner_uid runs/demo/report.html)" = "$(id -u)" ] || fail "3 report not owned by $(id -u)"
+grep -q "$(git rev-parse --short HEAD)" runs/demo/report.html || fail "3 report lacks the git sha"
 echo "ok 3 eval demo writes a report you own"
 
 output=$(make container-checklist-demo)
@@ -33,9 +34,8 @@ grep -q "2 receipt(s)" <<<"$output" || fail "4 checklist demo: $output"
 compgen -G "runs/checklist-demo/*/review.html" >/dev/null || fail "4 no review.html"
 echo "ok 4 checklist demo writes a review page"
 
-# Same flags as the Makefile's container-serve, detached, on a spare port
-$CONTAINER run -d --name "$API_NAME" --rm --read-only --tmpfs /tmp --cap-drop=all \
-  --security-opt=no-new-privileges -p "127.0.0.1:$PORT:8000" "$IMAGE" >/dev/null
+# The real container-serve target (your uid, its flags), detached on a spare port
+make container-serve SERVE_FLAGS="-d --name $API_NAME" PORT="$PORT" >/dev/null
 for _ in $(seq 30); do
   curl -fs "http://127.0.0.1:$PORT/docs" >/dev/null && break
   sleep 1

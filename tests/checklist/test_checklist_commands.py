@@ -235,3 +235,22 @@ def test_propose_reports_skipped_and_over_cap(
     )
     text = capsys.readouterr().out
     assert "Skipped files: 1" in text and "over --max-messages" in text
+
+
+def test_decisions_listing_an_id_twice_are_refused_by_name(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    proposal_id = _propose(tmp_path)
+    decisions = tmp_path / "decisions.json"
+    decisions.write_text(json.dumps({
+        "proposal_id": proposal_id, "accepted_ids": ["r01", "r01"], "rejected_ids": [],
+        "confirmation": "user-reviewed",
+    }))
+    assert _confirm(tmp_path, proposal_id, decisions_path=decisions) == 2
+    assert "listed more than once: r01" in capsys.readouterr().err
+
+
+def test_refused_confirm_never_creates_the_store(tmp_path: Path) -> None:
+    proposal_id = _propose(tmp_path)
+    assert _confirm(tmp_path, proposal_id, accept=("r99",)) == 2
+    assert not (tmp_path / "store.db").exists()

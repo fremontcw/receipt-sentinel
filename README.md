@@ -206,7 +206,8 @@ make container-checklist-demo # monthly checklist proposal + review page
 targets run the image with a read-only root and no capabilities, as your own user, and
 publish the API on `127.0.0.1` only. Keep it that way: the API has no auth and uses your
 key when `ANTHROPIC_API_KEY` is set. Gmail ingest is native-only, since its sign-in
-opens a browser.
+opens a browser. Tested with rootless Podman and rootful Docker; with rootless Docker or
+`sudo podman`, files written to `runs/` may not belong to you.
 
 **Demo (no API key):**
 

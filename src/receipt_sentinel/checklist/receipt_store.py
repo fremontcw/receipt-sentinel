@@ -85,7 +85,8 @@ def receipt_dedup_key(vendor: str, total: Decimal, receipt_date: date) -> str:
     # so non-Latin vendors keep their letters (an ASCII-only filter collapsed them to "")
     folded = unicodedata.normalize("NFKC", vendor).casefold()
     vendor_key = re.sub(r"[\W_]", "", folded) or folded
-    total_key = format(total.normalize(), "f")
+    # -0 and 0 are the same amount; Decimal keeps the sign through normalize()
+    total_key = format((abs(total) if total == 0 else total).normalize(), "f")
     return hashlib.sha256(
         f"{vendor_key}|{total_key}|{receipt_date.isoformat()}".encode()
     ).hexdigest()

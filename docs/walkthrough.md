@@ -59,8 +59,10 @@ make container-checklist-demo
 It reads a demo inbox, opens attachments only from allowlisted senders, and proposes
 August's checklist: 2 receipts, one flagged as an injection attempt. Open the
 `review.html` path it prints. Press **X** to reject the flagged receipt and **Enter** to
-accept the other; the save dialog then opens. Back in the terminal, confirm with the
-proposal id it printed:
+accept the other; the save dialog then opens. Run natively, **Save** downloads a decisions
+file for `sentinel checklist confirm --decisions`, the `Then:` line the demo prints. The
+container can't see your Downloads folder, so here confirm the same choice with the make
+target and the proposal id the demo printed:
 
 ```bash
 make container-checklist-confirm PROPOSAL=2026-08-01ef3167 ACCEPT=r02

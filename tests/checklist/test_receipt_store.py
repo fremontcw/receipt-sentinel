@@ -120,3 +120,10 @@ def test_readonly_open_with_uri_characters_in_path_never_creates(tmp_path: Path)
     with pytest.raises(sqlite3.OperationalError):
         _insert_checklist(conn)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["odd#dir"]
+
+
+def test_dedup_key_treats_negative_zero_as_zero() -> None:
+    day = date(2026, 8, 3)
+    assert receipt_dedup_key("Cafe", Decimal("-0.00"), day) == receipt_dedup_key(
+        "Cafe", Decimal("0"), day
+    )
