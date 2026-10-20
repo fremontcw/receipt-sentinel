@@ -219,6 +219,7 @@ function openSave() {
   text("save-summary", `${accepted} accepted · ${rejected} rejected · ${undecided} undecided ` +
     "(undecided items are left out of the checklist).");
   $("after-save").hidden = true;
+  $("save").disabled = false;
   $("save-dialog").showModal();
   $("save").focus();
 }
@@ -239,6 +240,9 @@ function save() {
   text("saved-name", name);
   text("next-command", `sentinel checklist confirm ${proposal.proposal_id} --decisions ~/Downloads/${name}`);
   $("after-save").hidden = false;
+  // Focus stays on Save, so a second Enter would download a second copy
+  $("save").disabled = true;
+  $("keep").focus();
 }
 
 $("accept").onclick = () => decide("accept");

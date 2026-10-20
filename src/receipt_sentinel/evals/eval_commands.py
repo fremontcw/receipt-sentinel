@@ -109,6 +109,9 @@ def _load_cases_for_run(golden_dir: Path) -> tuple[list[GoldenCase], dict[str, s
 
 
 def _git_sha() -> str:
+    # Set in the container image, which has no .git
+    if baked_in := os.environ.get("SENTINEL_GIT_SHA"):
+        return baked_in
     try:
         result = subprocess.run(  # noqa: S603,S607 - fixed argv, no user input
             ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607

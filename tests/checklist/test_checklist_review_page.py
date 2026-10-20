@@ -49,3 +49,12 @@ def test_key_repeat_and_duplicate_enter_are_guarded() -> None:
     page = _page()
     assert "event.repeat" in page
     assert "isDuplicate(" in page
+
+
+def test_save_cannot_download_twice_until_reopened() -> None:
+    # Enter stays on the focused Save button after saving; a second press re-downloaded
+    page = _page()
+    save_body = page[page.index("function save()"):page.index("$(\"accept\").onclick")]
+    open_body = page[page.index("function openSave()"):page.index("function save()")]
+    assert '$("save").disabled = true' in save_body
+    assert '$("save").disabled = false' in open_body

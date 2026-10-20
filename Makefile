@@ -3,6 +3,9 @@
 
 CONTAINER ?= podman
 IMAGE = receipt-sentinel:local
+PORT ?= 8000
+# The smoke test passes "-d --name …" to run the API exactly as users do, detached
+SERVE_FLAGS ?= -it
 # Run as your own uid so files written to the runs/ mount are yours. Rootless Podman also
 # needs keep-id to map that uid to you on the host (--user alone would land on a subuid).
 CONTAINER_USER = $(if $(filter podman,$(CONTAINER)),--userns=keep-id --user $$(id -u):$$(id -g),--user $$(id -u):$$(id -g))
@@ -43,7 +46,7 @@ checklist-demo:
 	uv run sentinel checklist propose --month 2026-08 --eml examples/demo_inbox --fake --allowlist examples/demo_inbox/allowlist.yaml --db runs/checklist-demo/store.db --out runs/checklist-demo
 
 container-build:
-	$(CONTAINER) build -t $(IMAGE) .
+	$(CONTAINER) build --build-arg GIT_SHA=$$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -t $(IMAGE) .
 
 container-demo:
 	rm -rf runs/demo && mkdir -p runs
@@ -52,7 +55,7 @@ container-demo:
 
 # 127.0.0.1 only: the API has no auth and uses your key when one is set (passed by name)
 container-serve:
-	$(CONTAINER_BASE) -it -p 127.0.0.1:8000:8000 -e ANTHROPIC_API_KEY $(IMAGE)
+	$(CONTAINER_BASE) $(SERVE_FLAGS) -p 127.0.0.1:$(PORT):8000 -e ANTHROPIC_API_KEY $(IMAGE)
 
 # Starts from an empty store, so the proposal id matches docs/walkthrough.md on every take
 container-checklist-demo:
@@ -61,5 +64,6 @@ container-checklist-demo:
 
 # make container-checklist-confirm PROPOSAL=<id the demo printed> ACCEPT=r02
 container-checklist-confirm:
+	@test -n "$(PROPOSAL)" -a -n "$(ACCEPT)" || { echo "usage: make container-checklist-confirm PROPOSAL=<id the demo printed> ACCEPT=r02" >&2; exit 2; }
 	mkdir -p runs
 	$(CONTAINER_RUN) $(IMAGE) sentinel checklist confirm $(PROPOSAL) --accept $(ACCEPT) --db runs/checklist-demo/store.db --out runs/checklist-demo

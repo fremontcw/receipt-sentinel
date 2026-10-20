@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -133,3 +134,14 @@ def test_exponent_totals_are_written_as_plain_decimals() -> None:
     data = proposal_to_json(proposal)
     record = data["items"][0]["receipt"]["record"]  # type: ignore[index]
     assert record["total"] == "10" and record["line_items"][0]["amount"] == "10"
+
+
+def test_loaded_proposal_recomputes_dedup_keys_from_the_record(tmp_path: Path) -> None:
+    # A hand-edited dedup_key must not let confirm store a duplicate
+    proposal = build_checklist_proposal(_report(ingested()), month="2026-08", conn=None)
+    path = tmp_path / "proposal.json"
+    save_proposal(proposal, path)
+    data = json.loads(path.read_text())
+    data["items"][0]["dedup_key"] = "tampered"
+    path.write_text(json.dumps(data))
+    assert load_proposal(path).items[0].dedup_key == proposal.items[0].dedup_key

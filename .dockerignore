@@ -7,3 +7,7 @@
 !src/
 !config/
 !examples/
+# Bytecode, and the allowlist (real sender addresses once `allowlist add` runs);
+# the container demos use examples/demo_inbox/allowlist.yaml
+**/__pycache__
+config/allowlist.yaml

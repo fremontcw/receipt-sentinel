@@ -312,3 +312,9 @@ def test_crash_after_scoring_leaves_no_verdict_file(
     with pytest.raises(ValueError):
         command_evals_run(p, fake=True, save=False, slack_webhook="x", report_url=None)
     assert not (p.report_path.parent / "status").exists()
+
+
+def test_git_sha_comes_from_the_environment_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The container has no .git; the image bakes the sha in at build time instead
+    monkeypatch.setenv("SENTINEL_GIT_SHA", "abc1234")
+    assert eval_commands._git_sha() == "abc1234"

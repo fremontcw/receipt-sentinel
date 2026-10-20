@@ -211,16 +211,18 @@ def load_proposal(path: Path) -> ChecklistProposal:
 def _item_from_json(item: dict[str, object]) -> ChecklistItem:
     receipt = item["receipt"]
     assert isinstance(receipt, dict)  # noqa: S101 - shape written by save_proposal
+    record = ReceiptRecord.model_validate(receipt["record"])
     return ChecklistItem(
         item_id=str(item["item_id"]),
-        dedup_key=str(item["dedup_key"]),
+        # Recomputed, never read back: confirm trusts this key to keep duplicates out
+        dedup_key=receipt_dedup_key(record.vendor, record.total, record.date),
         flags=tuple(str(flag) for flag in item["flags"]),  # type: ignore[attr-defined]
         receipt=IngestedReceipt(
             message_id=receipt["message_id"],
             sender=receipt["sender"],
             subject=receipt["subject"],
             filename=receipt["filename"],
-            record=ReceiptRecord.model_validate(receipt["record"]),
+            record=record,
             validation=ValidationResult(
                 tuple(ValidationRuleResult(**rule) for rule in receipt["validation"])
             ),

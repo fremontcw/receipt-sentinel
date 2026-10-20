@@ -12,6 +12,7 @@ Todo:
 """
 
 import re
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -31,10 +32,20 @@ def _dockerignore_lines() -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip() and line[0] != "#"]
 
 
+# Re-denied after the allowlist: bytecode, and the allowlist with real sender addresses
+REDENIED_AFTER_ALLOWLIST = ("**/__pycache__", "config/allowlist.yaml")
+
+
 def test_dockerignore_denies_by_default() -> None:
     lines = _dockerignore_lines()
     assert lines[0] == "*"
-    assert all(line.startswith("!") for line in lines[1:])
+    assert all(line.startswith("!") or line in REDENIED_AFTER_ALLOWLIST for line in lines[1:])
+
+
+def test_dockerignore_redenies_bytecode_and_real_allowlist() -> None:
+    lines = _dockerignore_lines()
+    last_allow = max(i for i, line in enumerate(lines) if line.startswith("!"))
+    assert sorted(lines[last_allow + 1 :]) == sorted(REDENIED_AFTER_ALLOWLIST)
 
 
 def test_dockerignore_never_allowlists_secrets() -> None:
@@ -45,8 +56,8 @@ def test_dockerignore_never_allowlists_secrets() -> None:
 
 def test_container_targets_publish_on_loopback_only() -> None:
     recipe = _make_target("container-serve")
-    assert "-p 127.0.0.1:8000:8000" in recipe
-    assert not re.search(r"-p\s+8000", recipe)
+    assert "-p 127.0.0.1:$(PORT):8000" in recipe
+    assert not re.search(r"-p\s+(?!127\.0\.0\.1:)", recipe)
 
 
 def test_container_targets_pass_keys_by_name_only() -> None:
@@ -98,3 +109,25 @@ def test_container_targets_create_runs_before_mounting_it() -> None:
 def test_container_checklist_demo_starts_from_an_empty_store() -> None:
     # A second take would otherwise see r02 as already confirmed, with a new proposal id
     assert "rm -rf runs/checklist-demo" in _make_target("container-checklist-demo")
+
+
+def test_smoke_test_starts_the_api_through_the_make_target() -> None:
+    # So it runs the API as users do: their uid, their flags
+    script = (REPO_ROOT / "scripts" / "container_smoke_test.sh").read_text()
+    assert "make container-serve" in script
+    assert "$(SERVE_FLAGS)" in _make_target("container-serve")
+
+
+def test_confirm_target_names_missing_variables() -> None:
+    result = subprocess.run(  # noqa: S603 - fixed argv
+        ["make", "-s", "container-checklist-confirm", "CONTAINER=echo"],  # noqa: S607
+        cwd=REPO_ROOT, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode != 0
+    assert "PROPOSAL=" in result.stdout + result.stderr
+
+
+def test_image_records_the_git_sha_for_reports() -> None:
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+    assert re.search(r"^ENV SENTINEL_GIT_SHA=\$GIT_SHA$", dockerfile, re.M)
+    assert "--build-arg GIT_SHA=" in _make_target("container-build")

@@ -24,6 +24,9 @@ COPY --from=builder /app /app
 WORKDIR /app
 # HOME=/tmp: the targets run as the host user's uid, which has no home in the image
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH=/app/.venv/bin:$PATH HOME=/tmp
+# Reports show the commit; the image has no .git to ask (make container-build sets it)
+ARG GIT_SHA=unknown
+ENV SENTINEL_GIT_SHA=$GIT_SHA
 USER 10001
 EXPOSE 8000
 # 0.0.0.0 inside the container's own network; the host publishes it on 127.0.0.1 only
