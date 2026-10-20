@@ -18,11 +18,15 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest -q
       - run: uv run sentinel evals run --fake --no-save --out runs/ci
-  # Builds the image and runs both demos and the API in it; keyless, so it costs nothing
+  # Builds the image and runs both demos and the API in it; keyless, so it costs nothing.
+  # Both runtimes: rootless Podman on Linux maps users differently from Docker
   container:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: [docker, podman]
     steps:
       - uses: actions/checkout@v4
       - run: scripts/container_smoke_test.sh
         env:
-          CONTAINER: docker
+          CONTAINER: ${{ matrix.runtime }}

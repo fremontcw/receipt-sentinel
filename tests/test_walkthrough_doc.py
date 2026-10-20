@@ -14,6 +14,10 @@ Todo:
 import re
 from pathlib import Path
 
+import pytest
+
+from receipt_sentinel.cli import main
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WALKTHROUGH = REPO_ROOT / "docs" / "walkthrough.md"
 LAST_SECTION_LATEST_START_SECONDS = 170  # 2:50, leaving 10 s to close
@@ -42,3 +46,17 @@ def test_walkthrough_fits_three_minutes() -> None:
     assert stamps[0] == ("0", "00")
     minutes, seconds = stamps[-1]
     assert int(minutes) * 60 + int(seconds) <= LAST_SECTION_LATEST_START_SECONDS
+
+
+def test_walkthrough_proposal_id_matches_the_demo(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inbox = REPO_ROOT / "examples" / "demo_inbox"
+    main(
+        ["checklist", "propose", "--month", "2026-08", "--eml", str(inbox), "--fake"]
+        + ["--allowlist", str(inbox / "allowlist.yaml"), "--db", str(tmp_path / "store.db")]
+        + ["--out", str(tmp_path)]
+    )
+    proposal_id = re.search(r"proposal (\S+):", capsys.readouterr().out)
+    assert proposal_id
+    assert f"PROPOSAL={proposal_id.group(1)} " in WALKTHROUGH.read_text()

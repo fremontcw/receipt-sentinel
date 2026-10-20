@@ -62,3 +62,39 @@ def test_dockerfile_runs_as_non_root_and_pins_bases() -> None:
     images = re.findall(r"^FROM (\S+)", text, re.M) + re.findall(r"COPY --from=(\S+)", text)
     external = [i for i in images if i not in stages]
     assert len(external) == 3 and all("@sha256:" in i for i in external)  # python x2, uv
+
+
+def _makefile_variable(name: str) -> str:
+    match = re.search(rf"^{name} = (.*(?:\\\n.*)*)", (REPO_ROOT / "Makefile").read_text(), re.M)
+    assert match, f"no Makefile variable {name}"
+    return match.group(1)
+
+
+def test_container_runs_as_the_host_user_on_podman_too() -> None:
+    # keep-id alone leaves the image's USER 10001 in place: it can't write a runs/ owned by you
+    podman_flags = re.search(r"\$\(filter podman,\$\(CONTAINER\)\),([^,]*),", _makefile_variable(
+        "CONTAINER_USER"))
+    assert podman_flags
+    assert "--userns=keep-id" in podman_flags.group(1)
+    assert "--user $$(id -u):$$(id -g)" in podman_flags.group(1)
+
+
+def test_demo_targets_count_crit_only_with_a_fresh_report() -> None:
+    # A crash also exits 1; only a report written by this run means "CRITICAL as intended"
+    for target in ("demo", "container-demo"):
+        recipe = _make_target(target)
+        assert "rm -rf runs/demo" in recipe
+        assert "-f runs/demo/report.html" in recipe
+
+
+def test_container_targets_create_runs_before_mounting_it() -> None:
+    assert "-v" not in _make_target("container-serve")  # serve writes nothing
+    for target in ("container-demo", "container-checklist-demo", "container-checklist-confirm"):
+        recipe = _make_target(target)
+        assert "$(CONTAINER_RUN)" in recipe
+        assert recipe.index("mkdir -p runs") < recipe.index("$(CONTAINER_RUN)")
+
+
+def test_container_checklist_demo_starts_from_an_empty_store() -> None:
+    # A second take would otherwise see r02 as already confirmed, with a new proposal id
+    assert "rm -rf runs/checklist-demo" in _make_target("container-checklist-demo")
