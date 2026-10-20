@@ -48,3 +48,22 @@ def test_samples_resolve_and_photo_sample_is_a_photo() -> None:
 def test_receipt_image_media_types() -> None:
     assert receipt_image(sample_receipt("clean"))[1] == "image/png"
     assert receipt_image(sample_receipt("tilted_photo"))[1] == "image/jpeg"
+
+
+def test_real_receipts_are_the_redacted_golden_cases() -> None:
+    from receipt_sentinel.evals.golden_case import load_golden_cases
+    from receipt_sentinel.hosted.demo_receipts import (
+        REAL_LINE_WIDTH,
+        REAL_STAMP,
+        real_receipt_names,
+    )
+
+    golden = {c.id: c for c in load_golden_cases() if c.source == "real_redacted"}
+    assert real_receipt_names() == tuple(sorted(golden))
+    for name in real_receipt_names():
+        receipt = sample_receipt(name)
+        lines = receipt.text.strip().splitlines()
+        assert lines[0] == REAL_STAMP and lines[-1] == REAL_STAMP
+        assert receipt.expected == golden[name].expected and not receipt.is_photo
+        assert max(len(line) for line in lines) <= REAL_LINE_WIDTH
+        assert STAMP not in receipt.text  # "NOT A REAL RECEIPT" would be false here

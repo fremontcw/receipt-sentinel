@@ -13,6 +13,7 @@ Todo:
     None
 """
 
+import json
 import logging
 import os
 import time
@@ -50,9 +51,10 @@ from receipt_sentinel.hosted.demo_links import (
 )
 from receipt_sentinel.hosted.demo_receipts import (
     MAX_SEED,
-    SAMPLE_RECEIPTS,
     DemoReceipt,
+    is_known_sample,
     random_receipt,
+    real_receipt_names,
     receipt_image,
     sample_receipt,
 )
@@ -80,6 +82,7 @@ LINK_NOTICES: dict[LinkState, str] = {
 }
 STORE_DOWN_NOTICE = f"Personal links are unavailable right now. {STILL_FREE}"
 MODEL_DOWN = f"The real model is unavailable right now; {STILL_FREE[0].lower()}{STILL_FREE[1:]}"
+REAL_RECEIPTS_SLOT = "__REAL_RECEIPTS_JSON__"
 INVALID_REQUEST = f"send exactly one known sample, or a whole-number seed from 0 to {MAX_SEED}"
 IMAGE_LIMITER_PER_IP = 60
 IMAGE_LIMITER_PER_DAY = 3000
@@ -106,8 +109,8 @@ class ExtractRequest(BaseModel):
     def exactly_one_known_receipt(self) -> "ExtractRequest":
         if (self.sample is None) == (self.seed is None):
             raise ValueError("send exactly one of sample or seed")
-        if self.sample is not None and self.sample not in SAMPLE_RECEIPTS:
-            raise ValueError(f"unknown sample; one of {sorted(SAMPLE_RECEIPTS)}")
+        if self.sample is not None and not is_known_sample(self.sample):
+            raise ValueError("unknown sample")
         return self
 
 
@@ -123,6 +126,12 @@ class ExtractResponse(BaseModel):
     latency_ms: int
     extraction_method: ExtractionMethod
     status: DemoStatus
+
+
+def _is_one_known_receipt(sample: str | None, seed: int | None) -> bool:
+    if sample is None:
+        return seed is not None
+    return seed is None and is_known_sample(sample)
 
 
 def _resolve(sample: str | None, seed: int | None) -> DemoReceipt:
@@ -313,7 +322,10 @@ class HostedDemo:
 
 def build_hosted_app(demo: HostedDemo, *, sample_report: Path) -> FastAPI:
     """The hosted demo's routes. No /docs, uploads or free text: only samples and seeds."""
-    page = PAGE_PATH.read_text(encoding="utf-8")
+    # Golden case ids ([a-z0-9_]), so plain JSON is safe inside the page's data block
+    page = PAGE_PATH.read_text(encoding="utf-8").replace(
+        REAL_RECEIPTS_SLOT, json.dumps(list(real_receipt_names()))
+    )
     image_limiter = FreeModeLimiter(per_ip=IMAGE_LIMITER_PER_IP, per_day=IMAGE_LIMITER_PER_DAY)
     app = FastAPI(title="Receipt Sentinel demo", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -346,9 +358,7 @@ def build_hosted_app(demo: HostedDemo, *, sample_report: Path) -> FastAPI:
         sample: Annotated[str | None, Query()] = None,
         seed: Annotated[int | None, Query(ge=0, le=MAX_SEED)] = None,
     ) -> Response:
-        if (sample is None) == (seed is None) or (
-            sample is not None and sample not in SAMPLE_RECEIPTS
-        ):
+        if not _is_one_known_receipt(sample, seed):
             raise HTTPException(422, "send exactly one known sample or a seed")
         # The four samples are cached renders; only random seeds cost CPU
         if seed is not None and image_limiter.check(_client_ip(request), demo.now()) != "ok":

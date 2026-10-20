@@ -1,8 +1,8 @@
 """demo_receipts
 
 The receipts the hosted demo can show and send to the model: four fixed samples from the
-golden set, and random receipts rebuilt from a seed. Each carries its answer key and a
-SAMPLE stamp, so none of them works as a fake receipt for a real business.
+golden set, the author's redacted real receipts from it, and random receipts rebuilt from a
+seed. Each carries its answer key and a stamp, so none of them works as a receipt.
 
 Status:
     None
@@ -13,11 +13,12 @@ Todo:
 """
 
 import random
+import textwrap
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache, lru_cache
 
 from receipt_sentinel.categorize.receipt_record import ModelOutput
-from receipt_sentinel.evals.golden_case import load_golden_cases
+from receipt_sentinel.evals.golden_case import GoldenCase, load_golden_cases
 from receipt_sentinel.evals.synthetic_fixture_renderer import render_photo_jpeg, render_receipt_png
 from receipt_sentinel.evals.synthetic_receipt_generator import (
     VARIANTS,
@@ -26,6 +27,9 @@ from receipt_sentinel.evals.synthetic_receipt_generator import (
 
 # ASCII hyphen: the renderer's Courier has no middle dot
 STAMP = "SAMPLE - NOT A REAL RECEIPT"
+REAL_STAMP = "REDACTED COPY - NOT VALID AS A RECEIPT"
+# Wrap long email lines (a gym slip prints as one line) so the picture stays receipt-shaped
+REAL_LINE_WIDTH = 60
 MAX_SEED = 2**31 - 1
 SAMPLE_RECEIPTS = {
     "clean": "synthetic_0001_dining_easy",
@@ -50,18 +54,43 @@ class DemoReceipt:
     is_photo: bool
 
 
-def _stamped(text: str) -> str:
-    return f"{STAMP}\n{text.strip()}\n{STAMP}\n"
+def _stamped(text: str, stamp: str = STAMP) -> str:
+    return f"{stamp}\n{text.strip()}\n{stamp}\n"
+
+
+@cache
+def _golden_cases_by_id() -> dict[str, GoldenCase]:
+    return {c.id: c for c in load_golden_cases()}
+
+
+@cache
+def real_receipt_names() -> tuple[str, ...]:
+    """Ids of the author's redacted real receipts in the golden set, sorted."""
+    return tuple(sorted(i for i, c in _golden_cases_by_id().items() if c.source == "real_redacted"))
+
+
+def is_known_sample(name: str) -> bool:
+    """True for one of SAMPLE_RECEIPTS or a real receipt's id."""
+    return name in SAMPLE_RECEIPTS or name in real_receipt_names()
+
+
+def _real_receipt(name: str) -> DemoReceipt:
+    lines = _golden_cases_by_id()[name].receipt_text.strip().splitlines()
+    wrapped = [part for line in lines for part in textwrap.wrap(line, REAL_LINE_WIDTH) or [""]]
+    case = _golden_cases_by_id()[name]
+    return DemoReceipt(name, _stamped("\n".join(wrapped), REAL_STAMP), case.expected, False)
 
 
 def sample_receipt(name: str) -> DemoReceipt:
-    """One of SAMPLE_RECEIPTS, stamped.
+    """One of SAMPLE_RECEIPTS or a real receipt (by golden case id), stamped.
 
     Raises:
-        KeyError: `name` is not a sample.
+        KeyError: `name` is neither.
     """
+    if name in real_receipt_names():
+        return _real_receipt(name)
     case_id = SAMPLE_RECEIPTS[name]
-    case = {c.id: c for c in load_golden_cases()}[case_id]
+    case = _golden_cases_by_id()[case_id]
     return DemoReceipt(
         f"sample-{name}",
         _stamped(case.receipt_text),
