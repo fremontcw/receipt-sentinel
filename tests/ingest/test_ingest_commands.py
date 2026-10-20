@@ -15,6 +15,7 @@ from receipt_sentinel.ingest.sender_allowlist import load_sender_allowlist
 from tests.ingest.email_builders import build_eml
 
 DEMO_INBOX = REPO_ROOT / "examples" / "demo_inbox"
+STORE = "store.db"
 
 
 def _snapshot(*roots: Path) -> dict[Path, float]:
@@ -67,10 +68,30 @@ def test_render_terminal_safe_keeps_newlines_and_text() -> None:
 
 def test_allowlist_add_address_then_domain_writes_sorted_deduped_yaml(tmp_path: Path) -> None:
     path = tmp_path / "allowlist.yaml"
-    assert command_allowlist_add(path, address="Zed@Shop.com", domain=None) == 0
-    assert command_allowlist_add(path, address="a@shop.com", domain=None) == 0
-    assert command_allowlist_add(path, address="zed@shop.com", domain=None) == 0
-    assert command_allowlist_add(path, address=None, domain="Store.Example") == 0
+    assert (
+        command_allowlist_add(
+            path, address="Zed@Shop.com", domain=None, store_path=tmp_path / "store.db"
+        )
+        == 0
+    )
+    assert (
+        command_allowlist_add(
+            path, address="a@shop.com", domain=None, store_path=tmp_path / "store.db"
+        )
+        == 0
+    )
+    assert (
+        command_allowlist_add(
+            path, address="zed@shop.com", domain=None, store_path=tmp_path / "store.db"
+        )
+        == 0
+    )
+    assert (
+        command_allowlist_add(
+            path, address=None, domain="Store.Example", store_path=tmp_path / "store.db"
+        )
+        == 0
+    )
     allowlist = load_sender_allowlist(path)
     assert sorted(allowlist.addresses) == ["a@shop.com", "zed@shop.com"]
     assert allowlist.domains == {"store.example"}
@@ -89,7 +110,12 @@ def test_allowlist_add_rejects_display_name_or_bad_domain(
     path = tmp_path / "allowlist.yaml"
     path.write_text("addresses: []\ndomains: []\n")
     before = path.read_text()
-    assert command_allowlist_add(path, address=address, domain=domain) == 2
+    assert (
+        command_allowlist_add(
+            path, address=address, domain=domain, store_path=tmp_path / "store.db"
+        )
+        == 2
+    )
     assert path.read_text() == before
 
 

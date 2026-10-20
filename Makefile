@@ -1,4 +1,4 @@
-.PHONY: install test lint demo compare-demo serve ingest-demo
+.PHONY: install test lint demo compare-demo serve ingest-demo checklist-demo
 
 install:
 	uv sync --extra dev
@@ -23,3 +23,7 @@ serve:
 
 ingest-demo:
 	uv run sentinel ingest --eml examples/demo_inbox --since 2026-08-01 --fake --allowlist examples/demo_inbox/allowlist.yaml
+
+# Keyless: proposes August from the demo inbox into runs/ (a throwaway store, not data/)
+checklist-demo:
+	uv run sentinel checklist propose --month 2026-08 --eml examples/demo_inbox --fake --allowlist examples/demo_inbox/allowlist.yaml --db runs/checklist-demo/store.db --out runs/checklist-demo

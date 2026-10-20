@@ -102,6 +102,7 @@ async def ingest_messages(
     allowlist: SenderAllowlist,
     *,
     since: date,
+    until: date | None = None,
     prompt: PromptConfig,
     client: LlmClient,
     model_id: str,
@@ -113,6 +114,7 @@ async def ingest_messages(
         source: Where messages come from (.eml directory, Gmail).
         allowlist: Trusted senders; everyone else is reported, never opened.
         since: Earliest message date to fetch.
+        until: First message date not to fetch (None: up to now).
         prompt: Prompt version for categorization.
         client: Model client (real or the keyless fake).
         model_id: Model to call.
@@ -126,7 +128,7 @@ async def ingest_messages(
     skipped: list[SkippedAttachment] = []
     unknown: dict[str, _UnknownTally] = {}
     processed = 0
-    for raw in source.list_messages(since):
+    for raw in source.list_messages(since, until):
         headers = parse_message_headers(raw.raw)
         decision = decide_sender(headers, allowlist)
         if not decision.allowed:

@@ -65,8 +65,12 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    header-first parsing, allowlist = exact address/domain AND topmost mx.google.com DMARC pass parsed
    structurally), `sentinel ingest` (prints, stores nothing), `sentinel allowlist add`, `make ingest-demo`.
    Author action: first real `--gmail` run needs a Google Cloud Desktop OAuth client saved as
-   `credentials.json`. Steps 8–9 (checklist propose/confirm + SQLite incl. duplicates/allowlist_events,
-   Docker) still to plan via `superpowers:writing-plans`.
+   `credentials.json`. Step 8 done 2026-10-19 (plan
+   `docs/superpowers/plans/2026-10-19-checklist-propose-confirm.md`): `checklist/` (SQLite store in
+   gitignored `data/`, dedup key vendor|total|date, allowlist_events), `checklist propose` (proposal.json +
+   keyboard review.html under runs/checklists/, read-only store), `checklist confirm` (decisions file or
+   --accept; one transaction; refuses re-confirm, unknown ids, accepted duplicates). `make checklist-demo`.
+   Step 9 (Dockerfile + 3-minute walkthrough) still to plan via `superpowers:writing-plans`.
 
 **Environment:**
 

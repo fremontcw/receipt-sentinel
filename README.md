@@ -25,6 +25,7 @@ src/receipt_sentinel/
 ├── ingest/             .eml directory or Gmail (read-only) → sender allowlist + DMARC → attachments
 ├── extract/            PDF/photo → text (PyMuPDF, Tesseract OCR, deskew; killable worker, caps)
 ├── validate/           Deterministic rules: items sum to total, date window, ISO 4217 currency
+├── checklist/          Monthly proposal + keyboard review page; confirm → SQLite (dedup, one transaction)
 ├── categorize/         LLM call: receipt text → ReceiptRecord (strict JSON schema, no tools)
 │   ├── categorize_receipt.py
 │   ├── llm_client.py           LlmClient protocol
@@ -46,8 +47,8 @@ mcp_run_history_server/  C# MCP server: lets an agent ask "what regressed?" (rea
 ```
 
 Feature path: `email → allowlist (headers only) → attachment → extract → categorize
-→ validate → report`. The checklist layer (user-confirmed persistence) is next; see
-[Roadmap](#roadmap). The golden set feeds both text and file fixtures, so the harness
+→ validate → monthly proposal → you review and confirm → SQLite`. Nothing is stored
+without that confirm. The golden set feeds both text and file fixtures, so the harness
 gates extraction as well as the LLM call.
 
 Harness loop:
@@ -264,6 +265,24 @@ The first run opens a browser to sign in. The scope is `gmail.readonly` only, an
 token is saved to `token.json` (gitignored, owner-only). If it expires, add `--reauth`.
 Gmail never runs in CI; tests use a fake Gmail service.
 
+**Monthly checklist (propose → you review → confirm):**
+
+```bash
+make checklist-demo   # keyless: proposes August 2026 from the demo inbox
+uv run sentinel checklist propose --month 2026-08 --gmail          # or --eml DIR
+open runs/checklists/<proposal_id>/review.html                      # Enter accept · X reject · S skip · ⌫ back
+uv run sentinel checklist confirm <proposal_id> --decisions ~/Downloads/decisions-<proposal_id>.json
+```
+
+`propose` ingests the month and writes a proposal: receipts with flags (needs review, low
+confidence < 0.7, duplicate, injection attempt), totals per category *and currency*, and
+the unknown senders, plus a keyboard review page. Nothing is stored. The review page
+downloads your decisions, and `confirm` is the only thing that writes to the local SQLite
+store (`data/receipt_sentinel.db`, gitignored), in one transaction. A second confirm of
+the same proposal, an id that isn't in the proposal, or an accepted duplicate is refused
+with nothing written. `--accept r01,r03` works without the page. For the demo, add
+`--db runs/checklist-demo/store.db --out runs/checklist-demo` to `confirm`.
+
 **Same model on Azure (Microsoft Foundry):**
 
 ```bash
@@ -370,5 +389,5 @@ feature it will eventually gate more of):
 
 6. ~~Extract layer, validate layer, PDF/image golden fixtures~~ done.
 7. ~~Ingest: `.eml` source, Gmail (read-only) source, sender allowlist~~ done.
-8. Checklist propose/confirm (SQLite, user-confirmed persistence only).
+8. ~~Checklist propose/confirm (SQLite, user-confirmed persistence only)~~ done.
 9. Dockerfile and a 3-minute walkthrough.

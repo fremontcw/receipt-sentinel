@@ -56,8 +56,8 @@ class RawMessage:
 
 
 class MessageSource(Protocol):
-    def list_messages(self, since: date) -> list[RawMessage]:
-        """Messages since a date; `raw` needs only the header block (enough to decide)."""
+    def list_messages(self, since: date, until: date | None = None) -> list[RawMessage]:
+        """Messages dated since <= day < until; `raw` needs only the header block."""
         ...
 
     def full_message(self, message: RawMessage) -> bytes:

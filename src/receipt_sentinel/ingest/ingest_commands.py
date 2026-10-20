@@ -14,11 +14,13 @@ Todo:
 import asyncio
 import re
 import sys
+from contextlib import closing
 from datetime import date
 from pathlib import Path
 
 import yaml
 
+from receipt_sentinel.checklist.receipt_store import open_receipt_store, record_allowlist_event
 from receipt_sentinel.evals.eval_commands import REPO_ROOT, build_client
 from receipt_sentinel.evals.golden_case import load_golden_cases
 from receipt_sentinel.evals.golden_fixture_text import extract_fixture_cases
@@ -26,10 +28,10 @@ from receipt_sentinel.ingest.inbound_message import MessageSource
 from receipt_sentinel.ingest.ingest_pipeline import IngestReport, ingest_messages
 from receipt_sentinel.ingest.sender_allowlist import load_sender_allowlist, parse_single_sender
 from receipt_sentinel.prompts.prompt_config import load_active_prompt
+from receipt_sentinel.terminal_safe_text import render_one_line as _field
+from receipt_sentinel.terminal_safe_text import render_terminal_safe
 
 EXIT_BAD_INPUT = 2
-# C0/C1 controls (minus newline), DEL, and bidi overrides that can disguise text
-_UNSAFE_TERMINAL_CHARS = re.compile(r"[\x00-\x09\x0b-\x1f\x7f-\x9f‪-‮⁦-⁩]")
 _HOSTNAME = re.compile(r"(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
 ALLOWLIST_FILE_HEADER = """\
 # config/allowlist.yaml — senders whose receipt attachments may be opened (spec §4.1).
@@ -39,17 +41,6 @@ ALLOWLIST_FILE_HEADER = """\
 # trusted_authserv_id: the receiving server whose Authentication-Results header is
 #   believed; an allowlisted sender also needs its DMARC pass for the From domain.
 """
-
-
-def render_terminal_safe(text: str) -> str:
-    """Strip control characters so sender-chosen text can't drive the terminal."""
-    return _UNSAFE_TERMINAL_CHARS.sub("", text)
-
-
-def _field(text: object) -> str:
-    """One untrusted value on one line: a newline in a subject, filename or model output
-    must not be able to print what looks like a report row."""
-    return render_terminal_safe(" ".join(str(text).split()))
 
 
 def command_ingest(
@@ -74,26 +65,48 @@ def command_ingest(
     Returns:
         0. Bad setup (missing key, missing Tesseract) raises and the CLI reports it.
     """
+    report = run_ingest(
+        source,
+        allowlist_path=allowlist_path,
+        since=since,
+        fake=fake,
+        provider=provider,
+        max_messages=max_messages,
+    )
+    print(render_terminal_safe(format_ingest_report(report, since=since)))
+    return 0
+
+
+def run_ingest(
+    source: MessageSource,
+    *,
+    allowlist_path: Path,
+    since: date,
+    until: date | None = None,
+    fake: bool,
+    provider: str,
+    max_messages: int,
+) -> IngestReport:
+    """Ingest with the configured model: the shared core of `ingest` and `checklist propose`."""
     cases = extract_fixture_cases(load_golden_cases())[0] if fake else load_golden_cases()
     client, model_id = build_client(fake=fake, demo_noise=False, cases=cases, provider=provider)
-    report = asyncio.run(
+    return asyncio.run(
         ingest_messages(
             source,
             load_sender_allowlist(allowlist_path),
             since=since,
+            until=until,
             prompt=load_active_prompt(REPO_ROOT / "config" / "active_prompt.yaml"),
             client=client,
             model_id=model_id,
             max_messages=max_messages,
         )
     )
-    print(render_terminal_safe(format_ingest_report(report, since=since)))
-    return 0
 
 
 def format_ingest_report(report: IngestReport, *, since: date) -> str:
     """Plain-text report: receipts, skipped attachments, unknown senders (metadata only).
-    Every sender-, file- or model-supplied value goes through _field."""
+    Every sender-, file- or model-supplied value goes through _field (render_one_line)."""
     lines = [f"Ingested {len(report.receipts)} receipt(s) from messages since {since}"]
     for receipt in report.receipts:
         record = receipt.record
@@ -128,12 +141,16 @@ def format_ingest_report(report: IngestReport, *, since: date) -> str:
     return "\n".join(lines)
 
 
-def command_allowlist_add(allowlist_path: Path, *, address: str | None, domain: str | None) -> int:
+def command_allowlist_add(
+    allowlist_path: Path, *, address: str | None, domain: str | None, store_path: Path
+) -> int:
     """Add one exact address or exact domain to the allowlist file (an explicit user action).
+
+    Records the addition in the store's allowlist_events table.
 
     Returns:
         0 when written (or already present), 2 when the entry is not a bare address or
-        a valid hostname; the file is then left untouched.
+        a valid hostname; the file and the store are then left untouched.
     """
     entry_kind, entry = ("addresses", address) if address is not None else ("domains", domain)
     value = (entry or "").strip().lower()
@@ -160,6 +177,8 @@ def command_allowlist_add(allowlist_path: Path, *, address: str | None, domain: 
         "trusted_authserv_id": allowlist.trusted_authserv_id,
     }
     allowlist_path.write_text(ALLOWLIST_FILE_HEADER + yaml.safe_dump(data, sort_keys=False))
+    with closing(open_receipt_store(store_path)) as conn, conn:
+        record_allowlist_event(conn, entry_kind=entry_kind, entry=value)
     print(f"added {value} to {entry_kind} in {allowlist_path}")
     return 0
 

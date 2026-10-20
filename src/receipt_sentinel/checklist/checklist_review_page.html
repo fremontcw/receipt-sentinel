@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checklist review</title>
+<style>
+  :root { --bg:#14161a; --panel:#1d2026; --ink:#e8e6e1; --muted:#9a9890; --line:#2e323a;
+          --accept:#3fa66b; --reject:#d0574e; --flag:#e0a63a; --key:#2a2e36; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f4ef; --panel:#fff; --ink:#1d1d1b; --muted:#6b6a64; --line:#e2dfd6;
+            --key:#ece9e1; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; display:grid; gap:16px;
+         grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  header { grid-column: 1 / -1; display:flex; justify-content:space-between; gap:12px;
+           align-items:baseline; flex-wrap:wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  #progress { color: var(--muted); font-variant-numeric: tabular-nums; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .vendor { font-size: 22px; font-weight: 650; margin: 0 0 4px; word-break: break-word; }
+  .amount { font-size: 28px; font-variant-numeric: tabular-nums; margin: 4px 0 8px; }
+  .meta { color: var(--muted); }
+  .status { display:inline-block; margin-top:8px; padding:2px 8px; border-radius:999px;
+            font-size:13px; border:1px solid var(--line); }
+  .status.accept { color: var(--accept); border-color: var(--accept); }
+  .status.reject { color: var(--reject); border-color: var(--reject); }
+  ul { margin: 8px 0 0; padding-left: 18px; }
+  .flags li { color: var(--flag); }
+  .hint { color: var(--reject); min-height: 1.2em; margin: 8px 0 0; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+  button { font: inherit; color: var(--ink); background: var(--key); border:1px solid var(--line);
+           border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  button.primary { background: var(--accept); border-color: var(--accept); color:#fff; }
+  button.danger { border-color: var(--reject); color: var(--reject); }
+  kbd { font: 12px ui-monospace, Menlo, monospace; padding: 1px 5px; border-radius: 4px;
+        border:1px solid currentColor; opacity:.8; margin-left: 6px; }
+  table { width:100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; }
+  td.empty { text-align: left; color: var(--muted); }
+  h2 { font-size: 14px; margin: 0 0 8px; color: var(--muted); font-weight: 600;
+       text-transform: uppercase; letter-spacing: .04em; }
+  details { margin-top: 16px; } summary { cursor: pointer; color: var(--muted); }
+  dialog { background: var(--panel); color: var(--ink); border:1px solid var(--line);
+           border-radius: 12px; max-width: 560px; width: calc(100% - 32px); }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  code { word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Checklist review</h1>
+    <div id="progress"></div>
+  </header>
+  <section id="card" aria-live="polite">
+    <p class="vendor" id="vendor"></p>
+    <p class="amount" id="amount"></p>
+    <div class="meta" id="meta"></div>
+    <div class="meta" id="source"></div>
+    <span class="status" id="status"></span>
+    <p class="hint" id="hint" role="status"></p>
+    <ul class="flags" id="flags"></ul>
+    <ul id="lines"></ul>
+    <div class="actions">
+      <button class="primary" id="accept">Accept<kbd>Enter</kbd></button>
+      <button class="danger" id="reject">Reject<kbd>X</kbd></button>
+      <button id="skip">Skip<kbd>S</kbd></button>
+      <button id="back">Back<kbd>⌫</kbd></button>
+      <button id="finish">Save decisions…<kbd>⌘S</kbd></button>
+    </div>
+  </section>
+  <aside>
+    <section>
+      <h2>Accepted totals</h2>
+      <table id="totals"></table>
+      <details id="unknown-box"><summary id="unknown-summary"></summary><ul id="unknown"></ul></details>
+      <details id="skipped-box"><summary id="skipped-summary"></summary><ul id="skipped"></ul></details>
+    </section>
+  </aside>
+</main>
+<dialog id="save-dialog">
+  <h2>Save your decisions</h2>
+  <p id="save-summary"></p>
+  <div class="actions">
+    <button class="primary" id="save" autofocus>Save<kbd>Enter</kbd></button>
+    <button id="keep">Keep reviewing<kbd>Esc</kbd></button>
+  </div>
+  <div id="after-save" hidden>
+    <p>Saved <code id="saved-name"></code> to your downloads. Write it to the store with:</p>
+    <p><code id="next-command"></code></p>
+  </div>
+</dialog>
+<script type="application/json" id="proposal">__PROPOSAL_JSON__</script>
+<script>
+"use strict";
+// Decisions file this page writes: {"proposal_id", "accepted_ids", "rejected_ids",
+//   "confirmation": "user-reviewed", "reviewed_at"}; then run
+//   sentinel checklist confirm <proposal_id> --decisions <file>
+const proposal = JSON.parse(document.getElementById("proposal").textContent);
+const items = proposal.items;
+const decisions = {};
+let index = 0;
+let saved = true;
+const $ = (id) => document.getElementById(id);
+const text = (id, value) => { $(id).textContent = value; };
+
+function list(id, values) {
+  const ul = $(id);
+  ul.replaceChildren(...values.map((value) => {
+    const li = document.createElement("li");
+    li.textContent = value;
+    return li;
+  }));
+}
+
+function counts() {
+  const all = Object.values(decisions);
+  return { accepted: all.filter((d) => d === "accept").length,
+           rejected: all.filter((d) => d === "reject").length };
+}
+
+// Exact decimal sums (totals arrive as plain strings like "12.50", never exponent form)
+const SCALE = 10000n;
+function toUnits(amount) {
+  const [whole, fraction = ""] = amount.replace("-", "").split(".");
+  const units = BigInt(whole) * SCALE + BigInt((fraction + "0000").slice(0, 4));
+  return amount.startsWith("-") ? -units : units;
+}
+function fromUnits(units) {
+  // At least 2 decimals, more when the amounts have them (3-decimal currencies): never cut
+  const sign = units < 0n ? "-" : "";
+  const abs = units < 0n ? -units : units;
+  const fraction = String(abs % SCALE).padStart(4, "0").replace(/0{1,2}$/, "");
+  return `${sign}${abs / SCALE}.${fraction.padEnd(2, "0")}`;
+}
+
+function renderTotals() {
+  const sums = new Map();
+  for (const item of items) {
+    if (decisions[item.item_id] !== "accept") continue;
+    const r = item.receipt.record;
+    const key = `${r.category} · ${r.currency}`;
+    sums.set(key, (sums.get(key) || 0n) + toUnits(r.total));
+  }
+  const rows = [...sums.entries()].map(([key, units]) => {
+    const tr = document.createElement("tr");
+    const label = document.createElement("td");
+    const amount = document.createElement("td");
+    label.textContent = key;
+    amount.textContent = fromUnits(units);
+    tr.append(label, amount);
+    return tr;
+  });
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.textContent = "Nothing accepted yet";
+    td.className = "empty";
+    tr.append(td);
+    rows.push(tr);
+  }
+  $("totals").replaceChildren(...rows);
+}
+
+function render() {
+  const { accepted, rejected } = counts();
+  const month = new Date(`${proposal.month}-01T12:00:00`).toLocaleString(undefined,
+    { month: "long", year: "numeric" });
+  text("title", `${month} checklist`);
+  const position = items.length ? `Item ${Math.min(index + 1, items.length)} of ${items.length}` : "No receipts";
+  text("progress", `${position} · ${accepted} accepted · ${rejected} rejected`);
+  renderTotals();
+  if (!items.length) {
+    text("vendor", "No receipts this month");
+    return;
+  }
+  const item = items[Math.min(index, items.length - 1)];
+  const r = item.receipt.record;
+  text("vendor", r.vendor);
+  text("amount", `${r.total} ${r.currency}`);
+  text("meta", `${r.category} · ${r.date} · read by ${item.receipt.extraction_method}`);
+  text("source", `from ${item.receipt.sender} · ${item.receipt.subject} · ${item.receipt.filename}`);
+  const decision = decisions[item.item_id];
+  const status = $("status");
+  status.className = `status ${decision || ""}`;
+  status.textContent = decision === "accept" ? "Accepted" : decision === "reject" ? "Rejected" : "Undecided";
+  list("flags", item.flags);
+  list("lines", r.line_items.map((li) => `${li.description} — ${li.amount}`));
+}
+
+const isDuplicate = (item) => item.flags.some((flag) => flag.startsWith("duplicate of"));
+
+function decide(value) {
+  if (!items.length) return openSave();
+  const item = items[index];
+  // Enter is the "looks right" key; a duplicate can't be accepted (confirm would refuse the
+  // whole file), so make the user say so with X instead
+  if (value === "accept" && isDuplicate(item)) {
+    text("hint", "Duplicate: press X to reject it (accepting would be refused at confirm)");
+    return;
+  }
+  text("hint", "");
+  if (value) decisions[item.item_id] = value; else delete decisions[item.item_id];
+  saved = false;
+  if (index < items.length - 1) { index += 1; render(); } else { render(); openSave(); }
+}
+
+function back() { if (index > 0) { index -= 1; render(); } }
+
+function openSave() {
+  const { accepted, rejected } = counts();
+  const undecided = items.length - accepted - rejected;
+  text("save-summary", `${accepted} accepted · ${rejected} rejected · ${undecided} undecided ` +
+    "(undecided items are left out of the checklist).");
+  $("after-save").hidden = true;
+  $("save-dialog").showModal();
+  $("save").focus();
+}
+
+function save() {
+  const accepted = items.filter((i) => decisions[i.item_id] === "accept").map((i) => i.item_id);
+  const rejected = items.filter((i) => decisions[i.item_id] === "reject").map((i) => i.item_id);
+  const file = { proposal_id: proposal.proposal_id, accepted_ids: accepted, rejected_ids: rejected,
+                 confirmation: "user-reviewed", reviewed_at: new Date().toISOString() };
+  const stamp = file.reviewed_at.replace(/[:.]/g, "-");
+  const name = `decisions-${proposal.proposal_id}-${stamp}.json`;
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);  // some browsers cancel if revoked at once
+  saved = true;
+  text("saved-name", name);
+  text("next-command", `sentinel checklist confirm ${proposal.proposal_id} --decisions ~/Downloads/${name}`);
+  $("after-save").hidden = false;
+}
+
+$("accept").onclick = () => decide("accept");
+$("reject").onclick = () => decide("reject");
+$("skip").onclick = () => decide(null);
+$("back").onclick = back;
+$("finish").onclick = openSave;
+$("save").onclick = save;
+$("keep").onclick = () => $("save-dialog").close();
+
+document.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    return openSave();
+  }
+  if ($("save-dialog").open || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.repeat) return;  // a held key must not decide several unseen items
+  const key = event.key.toLowerCase();
+  if (key === "enter") { event.preventDefault(); decide("accept"); }
+  else if (key === "x") decide("reject");
+  else if (key === "s") decide(null);
+  else if (key === "backspace" || key === "arrowleft") { event.preventDefault(); back(); }
+  else if (key === "arrowright" && index < items.length - 1) { index += 1; render(); }
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (!saved) { event.preventDefault(); event.returnValue = ""; }
+});
+
+text("unknown-summary", `Unknown senders, never opened: ${proposal.unknown_senders.length}`);
+list("unknown", proposal.unknown_senders.map((u) =>
+  `${u.address} · ${u.message_count} message(s) · ${u.reason} · ${u.subjects.join(" | ")}`));
+text("skipped-summary", `Skipped files: ${proposal.skipped.length}`);
+list("skipped", proposal.skipped.map((s) => `${s.filename} from ${s.sender}: ${s.reason}`));
+render();
+</script>
+</body>
+</html>

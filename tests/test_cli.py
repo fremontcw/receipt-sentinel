@@ -68,5 +68,17 @@ def test_cli_ingest_demo_inbox_fake(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_cli_allowlist_add_rejects_display_name(tmp_path: Path) -> None:
     path = tmp_path / "allowlist.yaml"
-    assert main(["allowlist", "add", "Shop <a@b.com>", "--allowlist", str(path)]) == 2
-    assert main(["allowlist", "add", "--domain", "shop.com", "--allowlist", str(path)]) == 0
+    db = ["--db", str(tmp_path / "store.db")]
+    assert main(["allowlist", "add", "Shop <a@b.com>", "--allowlist", str(path), *db]) == 2
+    assert main(["allowlist", "add", "--domain", "shop.com", "--allowlist", str(path), *db]) == 0
+
+
+def test_cli_checklist_round_trip(tmp_path: Path) -> None:
+    inbox = REPO_ROOT / "examples" / "demo_inbox"
+    common = ["--db", str(tmp_path / "store.db"), "--out", str(tmp_path / "out")]
+    propose = ["checklist", "propose", "--month", "2026-08", "--eml", str(inbox), "--fake"]
+    assert main([*propose, "--allowlist", str(inbox / "allowlist.yaml"), *common]) == 0
+    (proposal_dir,) = (tmp_path / "out").iterdir()
+    assert main(["checklist", "confirm", proposal_dir.name, "--accept", "r01", *common]) == 0
+    with pytest.raises(SystemExit):  # argparse rejects a month that isn't YYYY-MM
+        main(["checklist", "propose", "--month", "2026-13", "--eml", str(inbox)])
