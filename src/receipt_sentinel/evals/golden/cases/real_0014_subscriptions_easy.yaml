@@ -1,0 +1,59 @@
+id: real_0014_subscriptions_easy
+difficulty: easy
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; printed date is the
+  day before the email; author-reviewed 2026-10-20
+email_date: '2026-10-07'
+receipt_text: 'Subject: Your receipt from Apple.
+
+  Date: Wed, 7 Oct 2026 05:04:30 -0400
+
+
+  Receipt
+
+
+  October 6, 2026
+
+
+  Order ID: [REDACTED]
+
+  Document: [REDACTED]
+
+  Apple Account: [REDACTED]
+
+
+  iCloud iCloud+ with 200 GB (Monthly) Renews November 6, 2026 $2.99
+
+
+  Billing and Payment
+
+  [REDACTED]
+
+  [REDACTED]
+
+
+  Subtotal
+
+  $2.99
+
+
+  PayPal
+
+  $2.99
+
+
+  This email confirms payment for the iCloud+ plan listed above.
+
+  '
+expected:
+  vendor: Apple
+  total: '2.99'
+  currency: USD
+  date: '2026-10-06'
+  category: subscriptions
+  line_items:
+  - description: iCloud+ with 200 GB (Monthly)
+    amount: '2.99'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

@@ -1,0 +1,32 @@
+id: real_0020_other_easy
+difficulty: easy
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; Square notice; merchant
+  type unknown; author-reviewed 2026-10-20
+email_date: '2026-10-10'
+receipt_text: 'Subject: Receipt from tricountycenter [REDACTED]
+
+  Date: Sat, 10 Oct 2026 08:09:36 -0400
+
+
+  You paid $4.50 with your [REDACTED] to tricountycenter on Oct 10 2026 at 8:08 AM.
+
+
+  View your full receipt:
+
+  [REDACTED]
+
+
+  Your full receipt has more information about your payment to tricountycenter.
+
+  '
+expected:
+  vendor: tricountycenter
+  total: '4.50'
+  currency: USD
+  date: '2026-10-10'
+  category: other
+  line_items: []
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

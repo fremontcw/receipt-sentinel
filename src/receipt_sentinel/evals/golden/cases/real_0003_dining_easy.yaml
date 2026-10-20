@@ -1,0 +1,45 @@
+id: real_0003_dining_easy
+difficulty: easy
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; DoorDash confirmation,
+  total only; date from header; author-reviewed 2026-10-20
+email_date: '2026-10-11'
+receipt_text: 'Subject: Order Confirmation for [REDACTED] from McDonald''s
+
+  Date: Sun, 11 Oct 2026 12:15:25 -0400
+
+
+  DoorDash Order Confirmation
+
+
+  Thanks for your order, [REDACTED]
+
+
+  The estimated delivery time for your order is 12:28 PM - 12:38 PM. Track your order
+  in the DoorDash app or website.
+
+
+  Paid with [REDACTED] and/or credits McDonald''s Total: $54.50
+
+
+  Your receipt [REDACTED]
+
+
+  Estimated Total
+
+  $54.50
+
+
+  View Full Receipt Get Order Help
+
+  '
+expected:
+  vendor: McDonald's
+  total: '54.50'
+  currency: USD
+  date: '2026-10-11'
+  category: dining
+  line_items: []
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

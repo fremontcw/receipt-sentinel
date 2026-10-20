@@ -270,7 +270,13 @@ def test_public_run_omits_report_when_golden_set_has_real_case(tmp_path: Path) -
     assert not p.report_path.exists()
     assert (p.report_path.parent / "summary.md").exists()
 
-    synthetic = paths_in(tmp_path / "synthetic")
+    synthetic_golden = tmp_path / "synthetic_golden"
+    shutil.copytree(GOLDEN_DIR, synthetic_golden)
+    for real_case in (synthetic_golden / "cases").glob("real_*.yaml"):
+        real_case.unlink()
+    synthetic = EvalPaths(
+        **{**paths_in(tmp_path / "synthetic").__dict__, "golden_dir": synthetic_golden}
+    )
     command_evals_run(
         synthetic, fake=True, save=False, slack_webhook=None, report_url=None, public=True
     )

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redaction review</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg:#14161a; --panel:#1d2026; --ink:#e8e6e1; --muted:#9a9890; --line:#2e323a;
+          --accept:#3fa66b; --reject:#d0574e; --cut:#5a2a27; --mask:#2c4a63; --key:#2a2e36; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f4ef; --panel:#fff; --ink:#1d1d1b; --muted:#6b6a64; --line:#e2dfd6;
+            --cut:#f6d3cf; --mask:#d3e4f3; --key:#ece9e1; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; display:grid; gap:16px; }
+  header { display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600;
+       text-transform: uppercase; letter-spacing: .04em; }
+  #progress { color: var(--muted); font-variant-numeric: tabular-nums; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; min-width:0; }
+  .panes { display:grid; gap:16px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  @media (max-width: 760px) { .panes { grid-template-columns: 1fr; } }
+  pre { margin:0; white-space: pre-wrap; word-break: break-word; max-height: 46vh; overflow:auto;
+        font: 13px/1.45 ui-monospace, Menlo, monospace; }
+  .cut { background: var(--cut); text-decoration: line-through; }
+  .mask { background: var(--mask); border-radius: 3px; }
+  .status { display:inline-block; padding:2px 8px; border-radius:999px; font-size:13px;
+            border:1px solid var(--line); }
+  .status.approve { color: var(--accept); border-color: var(--accept); }
+  .status.reject { color: var(--reject); border-color: var(--reject); }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  button { font: inherit; color: var(--ink); background: var(--key); border:1px solid var(--line);
+           border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  button.primary { background: var(--accept); border-color: var(--accept); color:#fff; }
+  button.danger { border-color: var(--reject); color: var(--reject); }
+  kbd { font: 12px ui-monospace, Menlo, monospace; padding: 1px 5px; border-radius: 4px;
+        border:1px solid currentColor; opacity:.8; margin-left: 6px; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 3px 16px 3px 0; vertical-align: top; }
+  td:first-child { color: var(--muted); }
+  .notes { color: var(--muted); margin: 8px 0 0; }
+  dialog { background: var(--panel); color: var(--ink); border:1px solid var(--line);
+           border-radius: 12px; max-width: 560px; width: calc(100% - 32px); }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  code { word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title"></h1>
+    <div id="progress"></div>
+  </header>
+  <div class="actions">
+    <button class="primary" id="approve">Looks right<kbd>Enter</kbd></button>
+    <button class="danger" id="reject">Reject<kbd>X</kbd></button>
+    <button id="back">Back<kbd>⌫</kbd></button>
+    <button id="finish">Save…<kbd>⌘S</kbd></button>
+    <span class="status" id="status"></span>
+  </div>
+  <div class="panes">
+    <section><h2>Original (red = removed)</h2><pre id="original"></pre></section>
+    <section><h2>Redacted (goes in the public repo)</h2><pre id="redacted"></pre></section>
+  </div>
+  <section>
+    <h2>Labels (what the model should return)</h2>
+    <table id="labels"></table>
+    <p class="notes" id="notes"></p>
+  </section>
+</main>
+<dialog id="save-dialog">
+  <h2>Save your review</h2>
+  <p id="save-summary"></p>
+  <div class="actions">
+    <button class="primary" id="save" autofocus>Save<kbd>Enter</kbd></button>
+    <button id="keep">Keep reviewing<kbd>Esc</kbd></button>
+  </div>
+  <p id="after-save" hidden>Saved <code id="saved-name"></code> to your downloads. Tell Claude it's saved.</p>
+</dialog>
+<script type="application/json" id="cases">__CASES_JSON__</script>
+<script>
+"use strict";
+// File this page writes: {"approved_ids", "rejected_ids", "confirmation": "user-reviewed", "reviewed_at"}
+const cases = JSON.parse(document.getElementById("cases").textContent);
+const decisions = {};
+let index = 0;
+let saved = true;
+const $ = (id) => document.getElementById(id);
+
+function span(textValue, className) {
+  const el = document.createElement("span");
+  el.textContent = textValue;
+  if (className) el.className = className;
+  return el;
+}
+
+function counts() {
+  const all = Object.values(decisions);
+  return { approved: all.filter((d) => d === "approve").length,
+           rejected: all.filter((d) => d === "reject").length };
+}
+
+function row(label, value) {
+  const tr = document.createElement("tr");
+  tr.append(Object.assign(document.createElement("td"), { textContent: label }),
+            Object.assign(document.createElement("td"), { textContent: value }));
+  return tr;
+}
+
+function render() {
+  const { approved, rejected } = counts();
+  const item = cases[index];
+  $("title").textContent = item.id;
+  $("progress").textContent = `Receipt ${index + 1} of ${cases.length} · ${approved} approved · ${rejected} rejected`;
+  $("original").replaceChildren(...item.original.map((s) => span(s.text, s.removed ? "cut" : "")));
+  $("redacted").replaceChildren(...item.redacted.split(/(\[REDACTED\])/).map((part) =>
+    span(part, part === "[REDACTED]" ? "mask" : "")));
+  const e = item.expected;
+  const lines = e.line_items.length ? e.line_items.map((li) => `${li.description} — ${li.amount}`).join("\n") : "(none)";
+  $("labels").replaceChildren(
+    row("Vendor", e.vendor), row("Total", `${e.total} ${e.currency}`), row("Date", e.date),
+    row("Email date", item.email_date), row("Category", e.category), row("Line items", lines));
+  $("labels").querySelectorAll("td").forEach((td) => { td.style.whiteSpace = "pre-line"; });
+  $("notes").textContent = item.notes;
+  const decision = decisions[item.id];
+  $("status").className = `status ${decision || ""}`;
+  $("status").textContent = decision === "approve" ? "Approved" : decision === "reject" ? "Rejected" : "Undecided";
+}
+
+function decide(value) {
+  decisions[cases[index].id] = value;
+  saved = false;
+  if (index < cases.length - 1) { index += 1; render(); } else { render(); openSave(); }
+}
+
+function back() { if (index > 0) { index -= 1; render(); } }
+
+function openSave() {
+  const { approved, rejected } = counts();
+  $("save-summary").textContent = `${approved} approved · ${rejected} rejected · ` +
+    `${cases.length - approved - rejected} undecided. Only approved receipts get committed.`;
+  $("after-save").hidden = true;
+  $("save").disabled = false;
+  $("save-dialog").showModal();
+  $("save").focus();
+}
+
+function save() {
+  const pick = (value) => cases.filter((c) => decisions[c.id] === value).map((c) => c.id);
+  const file = { approved_ids: pick("approve"), rejected_ids: pick("reject"),
+                 confirmation: "user-reviewed", reviewed_at: new Date().toISOString() };
+  const name = `redaction-review-${file.reviewed_at.replace(/[:.]/g, "-")}.json`;
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  saved = true;
+  $("saved-name").textContent = name;
+  $("after-save").hidden = false;
+  $("save").disabled = true;  // a second Enter would download a second copy
+  $("keep").focus();
+}
+
+$("approve").onclick = () => decide("approve");
+$("reject").onclick = () => decide("reject");
+$("back").onclick = back;
+$("finish").onclick = openSave;
+$("save").onclick = save;
+$("keep").onclick = () => $("save-dialog").close();
+
+document.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    return openSave();
+  }
+  if ($("save-dialog").open || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+  const key = event.key.toLowerCase();
+  if (key === "enter") { event.preventDefault(); decide("approve"); }
+  else if (key === "x") decide("reject");
+  else if (key === "backspace" || key === "arrowleft") { event.preventDefault(); back(); }
+  else if (key === "arrowright" && index < cases.length - 1) { index += 1; render(); }
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (!saved) { event.preventDefault(); event.returnValue = ""; }
+});
+
+render();
+</script>
+</body>
+</html>

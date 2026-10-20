@@ -1,0 +1,85 @@
+id: real_0017_other_medium
+difficulty: medium
+source: real_redacted
+notes: 'email receipt, footer trimmed; Subject/Date headers kept; Shopify order: clothing,
+  shipping and tax; size redacted; author-reviewed 2026-10-20'
+email_date: '2026-10-20'
+receipt_text: 'Subject: Order [REDACTED] confirmed
+
+  Date: Tue, 20 Oct 2026 11:34:39 -0400
+
+
+  ekkovision
+
+
+  Order [REDACTED]
+
+
+  Thank you for your purchase!
+
+
+  We''re getting your order ready to be shipped. We will notify you when it has been
+  sent.
+
+
+  Estimated delivery Tuesday, Oct 27
+
+
+  Order summary
+
+
+  CLEARANCE OG BEATERS- SIZE UP x 1
+
+  Haze Purple Single PK [REDACTED]
+
+  $8.99
+
+
+  Subtotal
+
+  $8.99
+
+
+  Shipping
+
+  $11.55
+
+
+  Taxes
+
+  $1.60
+
+
+  Total
+
+  $22.14 USD
+
+
+  Shipping address
+
+  [REDACTED]
+
+  [REDACTED]
+
+
+  Shipping method
+
+  Ground Advantage
+
+  '
+expected:
+  vendor: ekkovision
+  total: '22.14'
+  currency: USD
+  date: '2026-10-20'
+  category: other
+  line_items:
+  - description: CLEARANCE OG BEATERS- SIZE UP
+    amount: '8.99'
+  - description: Shipping
+    amount: '11.55'
+  - description: Taxes
+    amount: '1.60'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

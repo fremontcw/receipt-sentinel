@@ -1,0 +1,49 @@
+id: real_0004_dining_easy
+difficulty: easy
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; Venmo purchase notice;
+  year only in header; author-reviewed 2026-10-20
+email_date: '2026-10-12'
+receipt_text: 'Subject: Receipt from Papa John''s International, Inc. - $63.41
+
+  Date: Mon, 12 Oct 2026 17:49:38 -0400
+
+
+  Receipt from Papa John''s International, Inc.- Purchase Amount: $63.41
+
+
+  Papa John''s International, Inc. purchase
+
+  Monday, October 12 at 02:49PM PDT
+
+  From [REDACTED]
+
+  Total: $63.41
+
+
+  [REDACTED]
+
+  $63.41
+
+
+  Total to merchant
+
+  $63.41
+
+
+  View in Venmo [REDACTED]
+
+
+  Contact the merchant for questions regarding refunds, returns and purchases.
+
+  '
+expected:
+  vendor: Papa John's International, Inc.
+  total: '63.41'
+  currency: USD
+  date: '2026-10-12'
+  category: dining
+  line_items: []
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

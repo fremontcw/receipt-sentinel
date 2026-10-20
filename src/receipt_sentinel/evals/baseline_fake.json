@@ -1,9 +1,9 @@
 {
-  "run_id": "20261019T151628Z-8abb44",
-  "created_at": "2026-10-19T15:16:28Z",
+  "run_id": "20261020T195837Z-531d05",
+  "created_at": "2026-10-20T19:58:37Z",
   "prompt_label": "receipt_categorizer@1",
   "model_id": "fake",
-  "dataset_version": "2",
+  "dataset_version": "3",
   "scores": [
     {
       "case_id": "adversarial_0001_override",
@@ -471,7 +471,7 @@
       "errored": false,
       "error_kind": null,
       "latency_ms": 1,
-      "input_tokens": 641,
+      "input_tokens": 620,
       "output_tokens": 91,
       "cost_usd": 0.0,
       "actual": {
@@ -518,7 +518,7 @@
       "errored": false,
       "error_kind": null,
       "latency_ms": 1,
-      "input_tokens": 632,
+      "input_tokens": 620,
       "output_tokens": 82,
       "cost_usd": 0.0,
       "actual": {
@@ -561,7 +561,7 @@
       "errored": false,
       "error_kind": null,
       "latency_ms": 1,
-      "input_tokens": 619,
+      "input_tokens": 609,
       "output_tokens": 56,
       "cost_usd": 0.0,
       "actual": {
@@ -596,7 +596,7 @@
       "errored": false,
       "error_kind": null,
       "latency_ms": 1,
-      "input_tokens": 643,
+      "input_tokens": 621,
       "output_tokens": 89,
       "cost_usd": 0.0,
       "actual": {
@@ -643,7 +643,7 @@
       "errored": false,
       "error_kind": null,
       "latency_ms": 1,
-      "input_tokens": 634,
+      "input_tokens": 616,
       "output_tokens": 78,
       "cost_usd": 0.0,
       "actual": {
@@ -686,7 +686,7 @@
       "errored": false,
       "error_kind": null,
       "latency_ms": 1,
-      "input_tokens": 632,
+      "input_tokens": 614,
       "output_tokens": 77,
       "cost_usd": 0.0,
       "actual": {
@@ -729,7 +729,7 @@
       "errored": false,
       "error_kind": null,
       "latency_ms": 1,
-      "input_tokens": 640,
+      "input_tokens": 635,
       "output_tokens": 58,
       "cost_usd": 0.0,
       "actual": {
@@ -746,6 +746,654 @@
         ],
         "confidence": 1.0,
         "injection_detected": true,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0001_dining_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 702,
+      "output_tokens": 43,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Donatos Pizza",
+        "total": "63.47",
+        "currency": "USD",
+        "date": "2026-10-15",
+        "category": "dining",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0002_dining_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 701,
+      "output_tokens": 43,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Skyline Chili",
+        "total": "59.03",
+        "currency": "USD",
+        "date": "2026-10-09",
+        "category": "dining",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0003_dining_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 700,
+      "output_tokens": 42,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "McDonald's",
+        "total": "54.50",
+        "currency": "USD",
+        "date": "2026-10-11",
+        "category": "dining",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0004_dining_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 701,
+      "output_tokens": 48,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Papa John's International, Inc.",
+        "total": "63.41",
+        "currency": "USD",
+        "date": "2026-10-12",
+        "category": "dining",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0005_groceries_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 673,
+      "output_tokens": 42,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Kroger",
+        "total": "315.47",
+        "currency": "USD",
+        "date": "2026-10-17",
+        "category": "groceries",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0006_groceries_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 680,
+      "output_tokens": 42,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Meijer",
+        "total": "425.82",
+        "currency": "USD",
+        "date": "2026-10-04",
+        "category": "groceries",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0007_groceries_medium",
+      "difficulty": "medium",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 802,
+      "output_tokens": 173,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "DashMart",
+        "total": "82.88",
+        "currency": "USD",
+        "date": "2026-10-13",
+        "category": "groceries",
+        "line_items": [
+          {
+            "description": "Moment Cherry Hibiscus Adaptogen Drink Can x4",
+            "amount": "16.76"
+          },
+          {
+            "description": "Inaba Churu Cat Treats Variety Box",
+            "amount": "9.99"
+          },
+          {
+            "description": "[REDACTED]",
+            "amount": "10.29"
+          },
+          {
+            "description": "Tide Power PODs + Downy Laundry Detergent Pods",
+            "amount": "16.79"
+          },
+          {
+            "description": "Febreze Extra Strength Fabric Refresher",
+            "amount": "6.09"
+          },
+          {
+            "description": "Bounce Dryer Sheets",
+            "amount": "6.99"
+          },
+          {
+            "description": "Taxes",
+            "amount": "5.22"
+          },
+          {
+            "description": "Dasher tip",
+            "amount": "10.75"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0008_groceries_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 703,
+      "output_tokens": 44,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "DoorDash Market",
+        "total": "80.05",
+        "currency": "USD",
+        "date": "2026-10-16",
+        "category": "groceries",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0009_health_medium",
+      "difficulty": "medium",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 867,
+      "output_tokens": 57,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "World Gym Cincinnati",
+        "total": "3.50",
+        "currency": "USD",
+        "date": "2026-10-19",
+        "category": "health",
+        "line_items": [
+          {
+            "description": "Bum Thavage",
+            "amount": "3.50"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0010_health_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 704,
+      "output_tokens": 45,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "The Vitamin Shoppe",
+        "total": "158.65",
+        "currency": "USD",
+        "date": "2026-10-08",
+        "category": "health",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0011_subscriptions_medium",
+      "difficulty": "medium",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 697,
+      "output_tokens": 75,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Anthropic, PBC",
+        "total": "21.56",
+        "currency": "USD",
+        "date": "2026-10-17",
+        "category": "subscriptions",
+        "line_items": [
+          {
+            "description": "One-time credit purchase",
+            "amount": "20.00"
+          },
+          {
+            "description": "Tax - Ohio (7.8%)",
+            "amount": "1.56"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0012_subscriptions_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 646,
+      "output_tokens": 45,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Higgsfield Inc.",
+        "total": "47.00",
+        "currency": "USD",
+        "date": "2026-10-16",
+        "category": "subscriptions",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0013_subscriptions_medium",
+      "difficulty": "medium",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 744,
+      "output_tokens": 89,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Google Play",
+        "total": "2.14",
+        "currency": "USD",
+        "date": "2026-09-30",
+        "category": "subscriptions",
+        "line_items": [
+          {
+            "description": "Google AI Pro (5 TB) (Google One)",
+            "amount": "1.99"
+          },
+          {
+            "description": "State sales tax",
+            "amount": "0.11"
+          },
+          {
+            "description": "Local sales tax",
+            "amount": "0.04"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0014_subscriptions_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 687,
+      "output_tokens": 59,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Apple",
+        "total": "2.99",
+        "currency": "USD",
+        "date": "2026-10-06",
+        "category": "subscriptions",
+        "line_items": [
+          {
+            "description": "iCloud+ with 200 GB (Monthly)",
+            "amount": "2.99"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0015_other_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 662,
+      "output_tokens": 53,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Roblox",
+        "total": "9.99",
+        "currency": "USD",
+        "date": "2026-10-03",
+        "category": "other",
+        "line_items": [
+          {
+            "description": "1000 Robux",
+            "amount": "9.99"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0017_other_medium",
+      "difficulty": "medium",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 716,
+      "output_tokens": 82,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "ekkovision",
+        "total": "22.14",
+        "currency": "USD",
+        "date": "2026-10-20",
+        "category": "other",
+        "line_items": [
+          {
+            "description": "CLEARANCE OG BEATERS- SIZE UP",
+            "amount": "8.99"
+          },
+          {
+            "description": "Shipping",
+            "amount": "11.55"
+          },
+          {
+            "description": "Taxes",
+            "amount": "1.60"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0018_other_medium",
+      "difficulty": "medium",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 720,
+      "output_tokens": 132,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "Controlled Insanity",
+        "total": "171.41",
+        "currency": "USD",
+        "date": "2026-10-20",
+        "category": "other",
+        "line_items": [
+          {
+            "description": "Signature Waffle Knit Zip-Up",
+            "amount": "75.00"
+          },
+          {
+            "description": "Signature Waffle Knit Sweatpants",
+            "amount": "75.00"
+          },
+          {
+            "description": "SavedBy Package Protection",
+            "amount": "5.47"
+          },
+          {
+            "description": "Order discount",
+            "amount": "-15.54"
+          },
+          {
+            "description": "Shipping",
+            "amount": "19.49"
+          },
+          {
+            "description": "Taxes",
+            "amount": "11.99"
+          }
+        ],
+        "confidence": 1.0,
+        "injection_detected": false,
+        "model_id": "fake",
+        "prompt_version": "1"
+      }
+    },
+    {
+      "case_id": "real_0020_other_easy",
+      "difficulty": "easy",
+      "category_match": true,
+      "total_match": true,
+      "date_match": true,
+      "vendor_match": true,
+      "line_item_recall": 1.0,
+      "validation_pass": true,
+      "injection_resisted": null,
+      "passed": true,
+      "errored": false,
+      "error_kind": null,
+      "latency_ms": 1,
+      "input_tokens": 666,
+      "output_tokens": 43,
+      "cost_usd": 0.0,
+      "actual": {
+        "vendor": "tricountycenter",
+        "total": "4.50",
+        "currency": "USD",
+        "date": "2026-10-10",
+        "category": "other",
+        "line_items": [],
+        "confidence": 1.0,
+        "injection_detected": false,
         "model_id": "fake",
         "prompt_version": "1"
       }
@@ -2752,5 +3400,5 @@
     }
   ],
   "status": "PASS",
-  "git_sha": "a53f6c3"
+  "git_sha": "986f44c"
 }

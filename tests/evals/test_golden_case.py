@@ -37,7 +37,7 @@ def test_loads_committed_cases_sorted_by_id() -> None:
 
 def test_dataset_version_is_read() -> None:
     """Verify dataset version is correctly read from file."""
-    assert load_dataset_version(GOLDEN_DIR) == "2"
+    assert load_dataset_version(GOLDEN_DIR) == "3"
 
 
 def test_duplicate_ids_raise(tmp_path: Path) -> None:

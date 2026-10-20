@@ -1,0 +1,42 @@
+id: real_0006_groceries_easy
+difficulty: easy
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; Instacart summary;
+  vendor is the store, not Instacart; author-reviewed 2026-10-20
+email_date: '2026-10-04'
+receipt_text: 'Subject: Your Instacart order receipt
+
+  Date: Sun, 4 Oct 2026 13:35:12 -0400
+
+
+  Thanks for ordering from Instacart!
+
+
+  Your order from Meijer was delivered on 10/4 @ 1:29 PM
+
+
+  40 Item Delivered (with 3 adjustment)
+
+
+  Rate your order: [REDACTED]
+
+
+  Order Totals: 425.82
+
+
+  View all items and full receipt: [REDACTED]
+
+
+  Need help? Just reply to this email.
+
+  '
+expected:
+  vendor: Meijer
+  total: '425.82'
+  currency: USD
+  date: '2026-10-04'
+  category: groceries
+  line_items: []
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
