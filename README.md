@@ -373,6 +373,25 @@ numbers-only history and dashboard to `gh-pages`. Required secret:
 Pages (one-time author step): Settings → Pages → Source: Deploy from a
 branch → `gh-pages` / root.
 
+### Hosted demo (Azure)
+
+The same image runs as a public demo page on Azure Container Apps
+(`SENTINEL_HOSTED=1`; try it locally with `make container-serve-hosted`, then
+http://127.0.0.1:8000). Anyone gets the free mode: sample or random receipts,
+answered from the answer key, no model call. A personal link
+(`sentinel demo-link issue "<label>"`) unlocks Claude for 25 calls over 14 days
+and emails the author on its first use. The hosted app takes no uploads or free
+text, only a sample name or a seed, so no stranger's receipt reaches it, and
+every generated receipt is stamped `SAMPLE - NOT A REAL RECEIPT`.
+
+Spend stays under $30/month: an Anthropic workspace limit ($10), the app's own
+monthly cap ($8), free-mode limits (30 per visitor per 10 minutes, 300 a day),
+one replica that scales to zero, and a $15 Azure budget alert. Infrastructure
+is `infra/main.bicep` (managed identity for Table Storage, Key Vault and email;
+no keys or connection strings); `.github/workflows/deploy-hosted.yml` pushes the
+image to GHCR on every green `main` and, once Azure is set up, deploys it with
+OIDC. One-time setup: `infra/hosted_demo_setup.md`.
+
 ## Trade-offs
 
 - **Rendered, not photographed, fixtures.** 11 golden cases are PDFs,
@@ -409,3 +428,7 @@ feature it will eventually gate more of):
 7. ~~Ingest: `.eml` source, Gmail (read-only) source, sender allowlist~~ done.
 8. ~~Checklist propose/confirm (SQLite, user-confirmed persistence only)~~ done.
 9. ~~Dockerfile and a 3-minute walkthrough~~ done.
+
+Beyond the spec: ~~a hosted Azure demo with personal links~~ built (design:
+`docs/superpowers/specs/2026-10-20-hosted-azure-demo-design.md`); going live
+waits on the one-time setup in `infra/hosted_demo_setup.md`.

@@ -26,6 +26,9 @@ dev = [
     "python-multipart>=0.0.32",
     "google-api-python-client>=2.201.0",
     "google-auth-oauthlib>=1.5.0",
+    "azure-data-tables>=12.7.0",
+    "azure-identity>=1.26.0",
+    "azure-communication-email>=1.1.0",
 ]
 telemetry = [
     "opentelemetry-exporter-otlp-proto-http>=1.25",
@@ -39,6 +42,11 @@ api = [
 gmail = [
     "google-api-python-client>=2.201.0",
     "google-auth-oauthlib>=1.5.0",
+]
+hosted = [
+    "azure-communication-email>=1.1.0",
+    "azure-data-tables>=12.7.0",
+    "azure-identity>=1.26.0",
 ]
 
 [project.scripts]

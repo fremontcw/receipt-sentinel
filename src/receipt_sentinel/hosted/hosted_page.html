@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Receipt Sentinel</title>
+<link rel="icon" href="data:,">
+<style>
+:root { --bg: #f7f7f5; --panel: #fff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e2e2de;
+  --accent: #2f5bd3; --ok: #1a7f37; --bad: #c62828; --warn-bg: #fff4e5; --warn: #8a4b00; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151517; --panel: #1f1f22; --ink: #ececef; --muted: #9a9aa2; --line: #333338;
+    --accent: #7aa2ff; --ok: #4cc26a; --bad: #ff6b6b; --warn-bg: #3a2a12; --warn: #ffc66d; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { margin: 0; font-size: 18px; }
+#mode { color: var(--muted); }
+#mode.real { color: var(--ok); font-weight: 600; }
+#notice { display: none; margin: 12px 16px 0; padding: 10px 12px; border-radius: 8px;
+  background: var(--warn-bg); color: var(--warn); }
+main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; max-width: 1100px; }
+@media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.intro { color: var(--muted); margin: 0 0 10px; }
+button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); cursor: pointer; margin: 0 6px 6px 0; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button[aria-pressed="true"] { outline: 2px solid var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+kbd { font-size: 12px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; }
+#receipt { display: block; max-width: 100%; max-height: 520px; margin-top: 8px; border-radius: 6px;
+  border: 1px solid var(--line); background: #fff; }
+dl { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px; margin: 12px 0; }
+dt { color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+#injection { display: none; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); }
+#meta, #source { color: var(--muted); font-size: 13px; }
+footer { padding: 0 16px 24px; color: var(--muted); font-size: 14px; max-width: 1100px; }
+footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Receipt Sentinel</h1>
+  <span id="mode">Free demo · answers come from the answer key</span>
+</header>
+<div id="notice" role="status"></div>
+<main>
+  <section aria-label="Receipt">
+    <p class="intro">An LLM reads a receipt and returns structured fields. Pick a receipt, then extract.</p>
+    <button id="random" class="primary">🎲 Random receipt <kbd>G</kbd></button><br>
+    <button data-sample="clean">Clean</button>
+    <button data-sample="tip">Tip</button>
+    <button data-sample="prompt_injection">Prompt injection</button>
+    <button data-sample="tilted_photo">Tilted photo</button>
+    <img id="receipt" alt="The selected receipt">
+  </section>
+  <section aria-label="Result">
+    <button id="extract" class="primary">Extract <kbd>Enter</kbd></button>
+    <div id="result" hidden>
+      <dl>
+        <dt>Vendor</dt><dd id="f-vendor"></dd><span id="c-vendor"></span>
+        <dt>Total</dt><dd id="f-total"></dd><span id="c-total"></span>
+        <dt>Date</dt><dd id="f-date"></dd><span id="c-date"></span>
+        <dt>Category</dt><dd id="f-category"></dd><span id="c-category"></span>
+      </dl>
+      <div id="injection">⚠ Prompt injection detected: flagged, not followed.</div>
+      <p id="source"></p>
+      <p id="meta"></p>
+    </div>
+    <p id="error" class="bad" role="alert"></p>
+  </section>
+</main>
+<footer>
+  How it's tested: <a href="/sample-report">a sample regression report</a> ·
+  <a href="https://github.com/fremontcw/receipt-sentinel">the GitHub repo</a> ·
+  <a href="https://github.com/fremontcw/receipt-sentinel/blob/main/docs/walkthrough.md">a 3-minute walkthrough</a>
+</footer>
+<script>
+const $ = (id) => document.getElementById(id);
+const LINK_NOTICES = {
+  expired: "Your personal link has expired. The free demo still works.",
+  revoked: "Your personal link was turned off. The free demo still works.",
+  used_up: "You've used all your real-model calls. The free demo still works.",
+  unknown: "That personal link isn't valid. The free demo still works.",
+  unavailable: "Personal links are unavailable right now. The free demo still works.",
+};
+let current = { sample: "clean" };
+let busy = false;
+
+function showNotice(text) {
+  $("notice").textContent = text || "";
+  $("notice").style.display = text ? "block" : "none";
+}
+
+function showStatus(status) {
+  const mode = $("mode");
+  mode.className = status.mode;
+  if (status.mode === "real") {
+    mode.textContent = `Real model: ${status.calls_left} of ${status.call_cap} calls left · expires ${status.expires_on}`;
+  } else {
+    mode.textContent = "Free demo · answers come from the answer key";
+  }
+  if (status.notice) showNotice(status.notice);
+}
+
+function query(receipt) {
+  return receipt.sample ? `sample=${encodeURIComponent(receipt.sample)}` : `seed=${receipt.seed}`;
+}
+
+function choose(receipt) {
+  current = receipt;
+  $("result").hidden = true;
+  $("error").textContent = "";
+  document.querySelectorAll("[data-sample]").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.sample === receipt.sample)));
+  $("receipt").src = `/api/receipt-image?${query(receipt)}`;
+}
+
+function randomReceipt() {
+  const seed = crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff;
+  choose({ seed });
+}
+
+function mark(id, ok) {
+  $(id).textContent = ok ? "✓" : "✗";
+  $(id).className = ok ? "ok" : "bad";
+}
+
+async function extract() {
+  if (busy) return;
+  busy = true;
+  $("extract").disabled = true;
+  $("error").textContent = "";
+  try {
+    const response = await fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(current),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      $("error").textContent = typeof body.detail === "string" ? body.detail : "Something went wrong.";
+      return;
+    }
+    for (const field of ["vendor", "total", "date", "category"]) {
+      const value = field === "total" ? `${body.record.total} ${body.record.currency}` : body.record[field];
+      $(`f-${field}`).textContent = value;
+      mark(`c-${field}`, body.checks[field]);
+    }
+    $("injection").style.display = body.record.injection_detected ? "block" : "none";
+    $("source").textContent = body.source === "model"
+      ? "Read live by the model; ✓ / ✗ compare it with the answer key."
+      : "Free demo: this is the answer key. With a personal link, Claude reads this receipt live.";
+    const how = { native: "text layer", ocr: "read by OCR", saved: "saved answer (daily demo limit reached)" };
+    $("meta").textContent = [body.model_id, `${body.latency_ms} ms`, how[body.extraction_method]]
+      .filter(Boolean).join(" · ");
+    $("result").hidden = false;
+    showStatus(body.status);
+  } catch (err) {
+    console.error("extract failed", err);
+    $("error").textContent = "Couldn't reach the server. Try again in a moment.";
+  } finally {
+    busy = false;
+    $("extract").disabled = false;
+  }
+}
+
+document.querySelectorAll("[data-sample]").forEach((b) =>
+  b.addEventListener("click", () => choose({ sample: b.dataset.sample })));
+$("random").addEventListener("click", randomReceipt);
+$("extract").addEventListener("click", extract);
+document.addEventListener("keydown", (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key === "g" || event.key === "G") { event.preventDefault(); randomReceipt(); }
+  // Enter always extracts, even with a sample button focused (it would re-pick the sample)
+  else if (event.key === "Enter") { event.preventDefault(); extract(); }
+});
+
+const linkState = new URLSearchParams(location.hash.slice(1)).get("link");
+if (linkState && LINK_NOTICES[linkState]) {
+  showNotice(LINK_NOTICES[linkState]);
+  history.replaceState(null, "", "/");
+}
+fetch("/api/status").then((r) => r.json()).then(showStatus)
+  .catch((err) => console.error("status failed", err));
+choose(current);
+</script>
+</body>
+</html>

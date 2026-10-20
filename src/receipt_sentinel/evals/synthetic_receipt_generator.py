@@ -104,9 +104,17 @@ def render_receipt_text(
     return "\n".join(lines) + "\n"
 
 
-def _build_case(rng: random.Random, index: int) -> GoldenCase:
-    """Build one synthetic golden case for the given 1-based index."""
-    variant = VARIANTS[(index - 1) % len(VARIANTS)]
+def synthetic_case_for_variant(rng: random.Random, index: int, variant: str) -> GoldenCase:
+    """Build one synthetic golden case with the given variant (one of VARIANTS).
+
+    Args:
+        rng: Seeded generator; the case is a pure function of its state.
+        index: 1-based number used in the case id.
+        variant: Layout quirk, one of VARIANTS.
+
+    Returns:
+        The case, with its ground-truth labels.
+    """
     category = Category.DINING if variant == "tip" else rng.choice(list(Category))
     vendor = rng.choice(VENDORS[category])
     when = date(2026, 8, 1) + timedelta(days=rng.randint(0, 27))
@@ -137,7 +145,10 @@ def _build_case(rng: random.Random, index: int) -> GoldenCase:
 def generate_synthetic_cases(seed: int, count: int) -> list[GoldenCase]:
     """Deterministically generate `count` synthetic golden cases from `seed`."""
     rng = random.Random(seed)  # noqa: S311 - deterministic test data, not security
-    return [_build_case(rng, index) for index in range(1, count + 1)]
+    return [
+        synthetic_case_for_variant(rng, index, VARIANTS[(index - 1) % len(VARIANTS)])
+        for index in range(1, count + 1)
+    ]
 
 
 def golden_case_to_yaml(case: GoldenCase) -> str:
