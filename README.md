@@ -381,8 +381,8 @@ branch → `gh-pages` / root.
 
 The same image runs as a public demo page on Azure Container Apps
 (`SENTINEL_HOSTED=1`; try it locally with `make container-serve-hosted`, then
-http://127.0.0.1:8000). Anyone gets the free mode: sample or random receipts,
-answered from the answer key, no model call. A personal link
+http://127.0.0.1:8000). Anyone gets the free mode: sample, random or the author's
+redacted real receipts (stamped "REDACTED COPY"), answered from the answer key, no model call. A personal link
 (`sentinel demo-link issue "<label>"`) unlocks Claude for 25 calls over 14 days
 and emails the author on its first use. The hosted app takes no uploads or free
 text, only a sample name or a seed, so no stranger's receipt reaches it, and

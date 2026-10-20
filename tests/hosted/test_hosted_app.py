@@ -8,7 +8,7 @@ from receipt_sentinel.categorize.llm_client import FakeLlmClient, LlmRequest
 from receipt_sentinel.evals.eval_commands import REPO_ROOT
 from receipt_sentinel.evals.scoring import ModelPricing
 from receipt_sentinel.hosted.demo_links import CALL_CAP, InMemoryLinkStore, issue_link
-from receipt_sentinel.hosted.demo_receipts import sample_receipt
+from receipt_sentinel.hosted.demo_receipts import real_receipt_names, sample_receipt
 from receipt_sentinel.hosted.demo_spend import InMemorySpendStore, month_key
 from receipt_sentinel.hosted.free_mode_limits import FreeModeLimiter
 from receipt_sentinel.hosted.hosted_app import COOKIE_NAME, HostedDemo, build_hosted_app
@@ -290,3 +290,16 @@ def test_build_app_switches_on_sentinel_hosted(monkeypatch: pytest.MonkeyPatch) 
     http = TestClient(build_app(), base_url="https://testserver")
     assert http.get("/api/status").json()["mode"] == "free"
     assert http.get("/docs").status_code == 404
+
+
+def test_real_receipts_are_listed_and_extract_like_samples() -> None:
+    h = Harness()
+    names = list(real_receipt_names())
+    page = h.http.get("/").text
+    assert names and all(f'"{name}"' in page for name in names)
+    body = h.extract({"sample": names[0]}).json()
+    assert body["source"] == "answer_key" and all(body["checks"].values())
+    image = h.http.get(f"/api/receipt-image?sample={names[0]}")
+    assert image.status_code == 200 and image.headers["content-type"] == "image/png"
+    assert h.extract({"sample": "real_9999_other_easy"}).status_code == 422
+    assert h.http.get("/api/receipt-image?sample=real_9999_other_easy").status_code == 422
