@@ -127,5 +127,6 @@ async def test_extract_error_scores_as_failure_without_model_call() -> None:
     )
     failed = next(s for s in run.scores if s.case_id == CASES[0].id)
     assert failed.error_kind == "extract" and not failed.passed
+    assert failed.actual == {"extract_error": "the PDF is damaged or incomplete"}
     assert not any(CASES[0].receipt_text.strip() in r.user for r in fake.calls)
     assert len(fake.calls) == len(CASES) - 1

@@ -82,7 +82,7 @@ def _keyless_cases() -> list[GoldenCase]:
     try:
         return extract_fixture_cases(load_golden_cases())[0]
     except OcrUnavailable as err:
-        logger.warning("%s; uploaded fixtures will not be recognised", err)
+        logger.warning("%s; photo and scanned-PDF uploads will get 503", err)
         return load_golden_cases()
 
 
@@ -178,7 +178,8 @@ def build_app() -> FastAPI:
         responses={200: {"content": {"application/json": {"example": file_example}}}},
     )
     async def categorize_file(file: UploadFile) -> FileCategorizeResponse:
-        # Read one byte past the cap so an oversized upload is caught without reading it all
+        # One byte past the cap is enough to reject an oversized file. This bounds memory only:
+        # Starlette has already spooled the whole multipart body to a temp file by now
         data = await file.read(MAX_ATTACHMENT_BYTES + 1)
         try:
             document = await run_in_threadpool(extract_document, data)

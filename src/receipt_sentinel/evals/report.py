@@ -47,7 +47,15 @@ def _group_table(title: str, groups: tuple[GroupDelta, ...]) -> str:
 def _actual_cell(actual: dict[str, object] | None) -> str:
     if actual is None:
         return "<em>errored</em>"
-    keys = ("vendor", "total", "date", "category", "injection_detected", "raw_text")
+    keys = (
+        "vendor",
+        "total",
+        "date",
+        "category",
+        "injection_detected",
+        "raw_text",
+        "extract_error",
+    )
     lines = [f"{k}: {actual[k]}" for k in keys if k in actual]
     return f"<pre>{escape(chr(10).join(lines))}</pre>"
 

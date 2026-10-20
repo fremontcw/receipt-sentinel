@@ -13,6 +13,7 @@ Todo:
 
 import asyncio
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from receipt_sentinel.categorize.categorize_receipt import ParseFailure, categorize_receipt
@@ -115,7 +116,8 @@ async def run_evals(
         nonlocal spent
         if extract_errors and case.id in extract_errors:
             # The pipeline broke before the model: a real failure, but nothing to pay for
-            return errored_score(case, "extract", None, pricing)
+            score = errored_score(case, "extract", None, pricing)
+            return replace(score, actual={"extract_error": extract_errors[case.id]})
         async with semaphore:
             score = await _score_one(case, prompt, client, model_id, pricing)
             spent += score.cost_usd

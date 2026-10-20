@@ -59,7 +59,7 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    `extract/` (PyMuPDF + Tesseract `--psm 6`, runs in a worker process killed at 30 s, caps per spec
    §4.1), `validate/` (sum, date window, ISO 4217; duplicates wait for step 8), 11 PDF/photo golden
    fixtures, dataset v2, `POST /categorize/file`. Real v2 baseline 97.0% after deskew ($0.22/run; CI runs ~95.5%, model variance on synthetic_0032). Photo deskew
-   landed 2026-10-19 (projection-profile, ±5°). Open: 7 deferred review minors listed in PR #4.
+   landed 2026-10-19 (projection-profile, ±5°). PR #4's 7 deferred review minors fixed 2026-10-20.
    Tesseract is now required for evals/demo (CI installs it). Step 7 done 2026-10-19 (plan
    `docs/superpowers/plans/2026-10-19-ingest-and-allowlist.md`): `ingest/` (.eml + Gmail readonly sources,
    header-first parsing, allowlist = exact address/domain AND topmost mx.google.com DMARC pass parsed
