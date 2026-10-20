@@ -55,6 +55,13 @@ def _render_receipt_image(text: str) -> Image.Image:
     return Image.open(io.BytesIO(pixmap.tobytes("png"))).convert("RGB")
 
 
+def render_receipt_png(text: str) -> bytes:
+    """A flat picture of the receipt, for showing it on a web page."""
+    png = io.BytesIO()
+    _render_receipt_image(text).convert("L").save(png, format="PNG", optimize=True)
+    return png.getvalue()
+
+
 def render_scanned_pdf(text: str) -> bytes:
     """One-page PDF holding only a picture of the receipt: no text layer, so OCR is needed."""
     # Scanners save grayscale JPEG; an RGB PNG of the same page is ~1 MB
