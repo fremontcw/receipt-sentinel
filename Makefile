@@ -1,5 +1,5 @@
 .PHONY: install test lint demo compare-demo serve ingest-demo checklist-demo \
-	container-build container-demo container-serve container-checklist-demo container-checklist-confirm
+	container-build container-demo container-serve container-serve-hosted container-checklist-demo container-checklist-confirm
 
 CONTAINER ?= podman
 IMAGE = receipt-sentinel:local
@@ -56,6 +56,10 @@ container-demo:
 # 127.0.0.1 only: the API has no auth and uses your key when one is set (passed by name)
 container-serve:
 	$(CONTAINER_BASE) $(SERVE_FLAGS) -p 127.0.0.1:$(PORT):8000 -e ANTHROPIC_API_KEY $(IMAGE)
+
+# The hosted demo page (free mode unless ANTHROPIC_API_KEY is set; no links exist locally)
+container-serve-hosted:
+	$(CONTAINER_BASE) $(SERVE_FLAGS) -p 127.0.0.1:$(PORT):8000 -e ANTHROPIC_API_KEY -e SENTINEL_HOSTED=1 $(IMAGE)
 
 # Starts from an empty store, so the proposal id matches docs/walkthrough.md on every take
 container-checklist-demo:

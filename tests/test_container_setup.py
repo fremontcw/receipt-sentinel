@@ -131,3 +131,31 @@ def test_image_records_the_git_sha_for_reports() -> None:
     dockerfile = (REPO_ROOT / "Dockerfile").read_text()
     assert re.search(r"^ENV SENTINEL_GIT_SHA=\$GIT_SHA$", dockerfile, re.M)
     assert "--build-arg GIT_SHA=" in _make_target("container-build")
+
+
+def _dockerfile_cmd() -> str:
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text()
+    return next(line for line in dockerfile.splitlines() if line.startswith("CMD "))
+
+
+def test_image_runs_uvicorn_without_access_log() -> None:
+    # Uvicorn's access log prints the full URL, and a personal link's URL carries its token
+    assert "--no-access-log" in _dockerfile_cmd()
+
+
+def test_image_includes_only_the_sample_report_from_docs() -> None:
+    lines = _dockerignore_lines()
+    assert "!docs/sample_report.html" in lines
+    assert not any(line.startswith("!docs") and line != "!docs/sample_report.html" for line in lines)
+    assert "docs/sample_report.html" in (REPO_ROOT / "Dockerfile").read_text()
+
+
+def test_hosted_serve_target_adds_only_the_hosted_switch() -> None:
+    serve, hosted = _make_target("container-serve"), _make_target("container-serve-hosted")
+    assert "SENTINEL_HOSTED=1" in hosted and "127.0.0.1:$(PORT)" in hosted
+    assert "$(CONTAINER_BASE)" in hosted and "$(CONTAINER_BASE)" in serve
+
+
+def test_smoke_test_checks_hosted_mode() -> None:
+    script = (REPO_ROOT / "scripts" / "container_smoke_test.sh").read_text()
+    assert "container-serve-hosted" in script and "/api/extract" in script
