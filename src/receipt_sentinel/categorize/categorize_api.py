@@ -118,8 +118,16 @@ def build_app() -> FastAPI:
 
     Returns:
         The app. Real model when the provider's key is set (SENTINEL_PROVIDER=anthropic|azure,
-        default anthropic); otherwise the keyless golden-label fake.
+        default anthropic); otherwise the keyless golden-label fake. SENTINEL_HOSTED=1
+        returns the hosted demo instead (hosted/hosted_app.py).
     """
+    if os.environ.get("SENTINEL_HOSTED") == "1":
+        # The public demo: no uploads or free text (spec 2026-10-20)
+        from receipt_sentinel.hosted.hosted_app import (  # noqa: PLC0415 - hosted extra
+            build_hosted_app_from_env,
+        )
+
+        return build_hosted_app_from_env()
     provider = os.environ.get(PROVIDER_ENV_VAR, "anthropic")
     fake = not _uses_real_model(provider)
     cases = _keyless_cases() if fake else load_golden_cases()
