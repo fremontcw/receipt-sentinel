@@ -32,7 +32,7 @@ Keep the outputs open; later steps use them.
 ## 3. Put the Anthropic key in Key Vault
 
 1. In the Anthropic console, create a workspace called `receipt-sentinel-demo`, set its
-   **monthly spend limit to $10**, and create an API key in it. Use this key only for the demo.
+   **monthly spend limit to $20**, and create an API key in it. Use this key only for the demo.
 2. Give yourself permission to write the secret, then store it (the vault uses Azure RBAC):
 
 ```bash

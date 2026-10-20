@@ -384,9 +384,10 @@ and emails the author on its first use. The hosted app takes no uploads or free
 text, only a sample name or a seed, so no stranger's receipt reaches it, and
 every generated receipt is stamped `SAMPLE - NOT A REAL RECEIPT`.
 
-Spend stays under $30/month: an Anthropic workspace limit ($10), the app's own
-monthly cap ($8), free-mode limits (30 per visitor per 10 minutes, 300 a day),
-one replica that scales to zero, and a $15 Azure budget alert. Infrastructure
+Spend is capped in layers: the app's own monthly cap ($8, which binds first),
+an Anthropic workspace limit ($20, the hard backstop), free-mode limits (30
+per visitor per 10 minutes, 300 a day), one replica that scales to zero, and a
+$15 Azure budget alert. Infrastructure
 is `infra/main.bicep` (managed identity for Table Storage, Key Vault and email;
 no keys or connection strings); `.github/workflows/deploy-hosted.yml` pushes the
 image to GHCR on every green `main` and, once Azure is set up, deploys it with
