@@ -28,7 +28,8 @@ infrastructure as code, keyless CI deploys, managed identity, budgets.
   correct answer can't be memorised.
 - An email to the author the first time each personal link uses the real model, and when
   the monthly cap trips.
-- Total spend under **$30/month**, enforced, not hoped for.
+- Normal spend around $8/month for Claude plus a little Azure, with hard stops behind it
+  (author raised the Anthropic backstop to $20 on 2026-10-20; see §6).
 - Deployed by GitHub Actions from `main`, no long-lived cloud credentials anywhere.
 
 **Non-goals**
@@ -119,13 +120,16 @@ a random click can land on a prompt injection or a tilted photo.
 
 | Limit | Amount | Enforced by |
 |---|---|---|
-| Anthropic | $10/month | A dedicated demo API key in its own workspace with a workspace spend limit set in the Anthropic console. Hard stop, outside our code. |
+| Anthropic | $20/month | A dedicated demo API key in its own workspace with a workspace spend limit set in the Anthropic console. Hard stop, outside our code. |
 | App's monthly cap | $8/month | The app adds each call's cost (tokens × `config/model_pricing.yaml`) to a per-month row in Table Storage. At $8 it switches everyone to free mode with a "real model paused until <1st>" notice, and emails the author once. |
 | Per link | 25 calls | Section 4. About $0.08 per link at current prices. |
 | Azure, extract work | 300 free-mode extracts/day, all visitors | App-level global counter (in memory; one replica makes it correct). Past it, free mode shows samples' saved answers without rendering or OCR. Bounds active CPU to minutes a day. |
 | Azure | $15 budget alert | Azure budget on the resource group emailing the author at 50% and 100%. Alert only: Azure budgets don't stop resources. |
 
-Worst case is about $25/month, under the author's $30. The one thing not hard-stopped is
+In normal use the app's $8 cap binds first, so Claude costs at most about $8/month. The
+$20 workspace limit only matters if the app's cap fails; that worst case plus the Azure
+alert is about $35/month, above the original $30 target, which the author accepted
+(2026-10-20). The one thing not hard-stopped is
 an idle-but-warm replica: anything hitting the site every few minutes all month keeps it
 from scaling to zero. At idle rates that's roughly $10/month for 0.5 vCPU / 1 GiB, inside
 the $15 alert. Builder: confirm against current Container Apps pricing and size down if
@@ -201,7 +205,7 @@ monthly cap and the Azure alert.
 1. An Azure subscription, then one manual `az deployment group create` with `infra/main.bicep`.
 2. In Entra: the app registration + federated credential for GitHub (the Bicep or a short
    script prints the exact commands).
-3. In Anthropic's console: a demo workspace, its spend limit ($10), and a key for it, stored
+3. In Anthropic's console: a demo workspace, its spend limit ($20), and a key for it, stored
    into Key Vault.
 4. Buy the domain and add the two DNS records (a CNAME and the TXT verification record);
    the deploy prints both.

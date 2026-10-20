@@ -51,7 +51,9 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    $8 app cap; email alerts via ACS), `SENTINEL_HOSTED=1` switches `build_app`, `infra/main.bicep`,
    `deploy-hosted.yml` (GHCR image every green main; OIDC deploy once repo vars exist). Store tests
    run against Azurite (`AZURITE_TABLES_URL`; CI service). Going live = author follows
-   `infra/hosted_demo_setup.md` (needs Azure + a $10-limited Anthropic workspace key).
+   `infra/hosted_demo_setup.md` (needs Azure + a $20-limited Anthropic workspace key). Live since
+   2026-10-20 at https://receipt-sentinel.livelyisland-d20fc2cc.eastus.azurecontainerapps.io (resource group
+   `receipt-sentinel-demo`, eastus; budgetStartDate 2026-10-01 on every Bicep re-run).
 5. ~~Stored-status bug~~ fixed: `save_run` gets the diff verdict (MCP server could expose status now).
 6. When the author has Azure: deploy Claude in Foundry, set `ANTHROPIC_FOUNDRY_API_KEY`/`_RESOURCE`/`_MODEL`,
    `uv run sentinel evals run --provider azure --out runs/azure`; then switch to Entra ID auth (TODO in the
