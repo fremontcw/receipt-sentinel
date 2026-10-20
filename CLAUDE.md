@@ -44,9 +44,14 @@ Goal of the current work: make this repo show a full "AI-native automation engin
 4. ~~REST endpoint~~ done locally: `make serve` → `/docs` (`categorize/categorize_api.py`), keyless
    fake with golden sample dropdown (clean / tip / prompt injection), real model when a key is set,
    127.0.0.1 only. Next (author approved the direction, design doc not written yet, waits on Azure):
-   hosted on Azure Container Apps (scale-to-zero, GHCR image, OIDC deploy), real model gated by
-   per-person passcodes (hashed in Azure Table Storage, ~14-day expiry, ~25-call cap each, revocable),
-   plus an Anthropic spend cap. Write it via `superpowers:brainstorming` → spec → `writing-plans`.
+   hosted on Azure Container Apps. Built 2026-10-20 (spec
+   `docs/superpowers/specs/2026-10-20-hosted-azure-demo-design.md`, plan
+   `docs/superpowers/plans/2026-10-20-hosted-azure-demo.md`): `hosted/` package (free mode = answer
+   key; personal links via `sentinel demo-link`, 25 calls / 14 days, ETag-counted in Table Storage;
+   $8 app cap; email alerts via ACS), `SENTINEL_HOSTED=1` switches `build_app`, `infra/main.bicep`,
+   `deploy-hosted.yml` (GHCR image every green main; OIDC deploy once repo vars exist). Store tests
+   run against Azurite (`AZURITE_TABLES_URL`; CI service). Going live = author follows
+   `infra/hosted_demo_setup.md` (needs Azure + a $10-limited Anthropic workspace key).
 5. ~~Stored-status bug~~ fixed: `save_run` gets the diff verdict (MCP server could expose status now).
 6. When the author has Azure: deploy Claude in Foundry, set `ANTHROPIC_FOUNDRY_API_KEY`/`_RESOURCE`/`_MODEL`,
    `uv run sentinel evals run --provider azure --out runs/azure`; then switch to Entra ID auth (TODO in the
