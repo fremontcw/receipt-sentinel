@@ -146,7 +146,8 @@ def test_image_runs_uvicorn_without_access_log() -> None:
 def test_image_includes_only_the_sample_report_from_docs() -> None:
     lines = _dockerignore_lines()
     assert "!docs/sample_report.html" in lines
-    assert not any(line.startswith("!docs") and line != "!docs/sample_report.html" for line in lines)
+    allowed_docs = [line for line in lines if line.startswith("!docs")]
+    assert allowed_docs == ["!docs/sample_report.html"]
     assert "docs/sample_report.html" in (REPO_ROOT / "Dockerfile").read_text()
 
 
