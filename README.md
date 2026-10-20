@@ -193,6 +193,21 @@ shape of report a real prompt or model regression produces.
 
 ## Run it
 
+**With only Podman or Docker** (no Python, no Tesseract, no API key):
+
+```bash
+make container-build          # add CONTAINER=docker to each command to use Docker
+make container-demo           # eval demo -> runs/demo/report.html
+make container-serve          # API at http://127.0.0.1:8000/docs
+make container-checklist-demo # monthly checklist proposal + review page
+```
+
+[`docs/walkthrough.md`](docs/walkthrough.md) is a 3-minute guided tour of all three. The
+targets run the image with a read-only root and no capabilities, as your own user, and
+publish the API on `127.0.0.1` only. Keep it that way: the API has no auth and uses your
+key when `ANTHROPIC_API_KEY` is set. Gmail ingest is native-only, since its sign-in
+opens a browser.
+
 **Demo (no API key):**
 
 Needs Tesseract for the scanned and photo fixtures: `brew install tesseract` (macOS) or
@@ -390,4 +405,4 @@ feature it will eventually gate more of):
 6. ~~Extract layer, validate layer, PDF/image golden fixtures~~ done.
 7. ~~Ingest: `.eml` source, Gmail (read-only) source, sender allowlist~~ done.
 8. ~~Checklist propose/confirm (SQLite, user-confirmed persistence only)~~ done.
-9. Dockerfile and a 3-minute walkthrough.
+9. ~~Dockerfile and a 3-minute walkthrough~~ done.

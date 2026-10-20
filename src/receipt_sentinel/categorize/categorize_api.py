@@ -3,7 +3,9 @@
 Local REST endpoint for the categorizer: `make serve`, then try it at /docs, with receipt
 text or an uploaded PDF/photo (through the extract layer). Calls the same
 categorize_receipt the eval harness gates. Keyless (golden-label fake) unless a real
-provider key is set. Binds to 127.0.0.1 only: no auth, nothing stored.
+provider key is set. Binds to 127.0.0.1 (`make serve`); in the container it listens on
+0.0.0.0 inside the container's own network and is published on the host's 127.0.0.1 only.
+No auth, nothing stored.
 
 Status:
     None
