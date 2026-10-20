@@ -1,5 +1,5 @@
 .PHONY: install test lint demo compare-demo serve ingest-demo checklist-demo \
-	container-build container-demo container-serve container-checklist-demo
+	container-build container-demo container-serve container-checklist-demo container-checklist-confirm
 
 CONTAINER ?= podman
 IMAGE = receipt-sentinel:local
@@ -52,3 +52,7 @@ container-serve:
 container-checklist-demo:
 	mkdir -p runs
 	$(CONTAINER_RUN) $(IMAGE) sentinel checklist propose --month 2026-08 --eml examples/demo_inbox --fake --allowlist examples/demo_inbox/allowlist.yaml --db runs/checklist-demo/store.db --out runs/checklist-demo
+
+# make container-checklist-confirm PROPOSAL=<id the demo printed> ACCEPT=r02
+container-checklist-confirm:
+	$(CONTAINER_RUN) $(IMAGE) sentinel checklist confirm $(PROPOSAL) --accept $(ACCEPT) --db runs/checklist-demo/store.db --out runs/checklist-demo

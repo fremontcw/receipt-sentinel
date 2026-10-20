@@ -70,7 +70,11 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    gitignored `data/`, dedup key vendor|total|date, allowlist_events), `checklist propose` (proposal.json +
    keyboard review.html under runs/checklists/, read-only store), `checklist confirm` (decisions file or
    --accept; one transaction; refuses re-confirm, unknown ids, accepted duplicates). `make checklist-demo`.
-   Step 9 (Dockerfile + 3-minute walkthrough) still to plan via `superpowers:writing-plans`.
+   Step 9 done 2026-10-19 (plan `docs/superpowers/plans/2026-10-19-container-and-walkthrough.md`):
+   `Dockerfile` (editable uv install so REPO_ROOT stays /app; bases pinned to multi-arch list
+   digests), deny-all `.dockerignore`, `make container-*` targets (Podman default,
+   `CONTAINER=docker`), `scripts/container_smoke_test.sh` (CI job `container`),
+   `docs/walkthrough.md`. Optional author action: a 3-minute screen recording following it.
 
 **Environment:**
 
