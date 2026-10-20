@@ -3,6 +3,13 @@ on: [push, pull_request]
 jobs:
   unit:
     runs-on: ubuntu-latest
+    # Local Azure Table Storage for the hosted demo's store tests (dev account, no real Azure)
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite@sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
+        ports: ["10002:10002"]
+    env:
+      AZURITE_TABLES_URL: http://127.0.0.1:10002/devstoreaccount1
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
