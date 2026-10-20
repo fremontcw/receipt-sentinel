@@ -38,6 +38,7 @@ from receipt_sentinel.evals.eval_commands import (
     command_record_skip,
 )
 from receipt_sentinel.extract.extracted_document import OcrUnavailable
+from receipt_sentinel.hosted.demo_link_commands import dispatch_demo_link
 from receipt_sentinel.ingest.eml_directory_source import EmlDirectorySource
 from receipt_sentinel.ingest.gmail_source import GmailSetupError, GmailSource, build_gmail_service
 from receipt_sentinel.ingest.inbound_message import MessageSource
@@ -54,6 +55,7 @@ def _build_parser() -> argparse.ArgumentParser:
     top = parser.add_subparsers(dest="group", required=True)
     _add_ingest_parsers(top)
     _add_checklist_parsers(top)
+    _add_demo_link_parsers(top)
     evals = top.add_parser("evals", help="regression harness").add_subparsers(
         dest="command", required=True
     )
@@ -185,6 +187,14 @@ def _add_checklist_parsers(top: "argparse._SubParsersAction[argparse.ArgumentPar
         command.add_argument("--out", type=Path, default=DEFAULT_CHECKLIST_DIR)
 
 
+def _add_demo_link_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    links = top.add_parser("demo-link", help="personal links for the hosted demo")
+    commands = links.add_subparsers(dest="command", required=True)
+    commands.add_parser("issue", help="create a link and print it").add_argument("label")
+    commands.add_parser("list", help="show every link and its use")
+    commands.add_parser("revoke", help="turn a link off").add_argument("label_or_id")
+
+
 def _message_source(args: argparse.Namespace) -> MessageSource:
     if args.gmail:
         return GmailSource(
@@ -257,6 +267,10 @@ def _dispatch(args: argparse.Namespace) -> int:
         return _dispatch_ingest(args)
     if args.group == "checklist":
         return _dispatch_checklist(args)
+    if args.group == "demo-link":
+        return dispatch_demo_link(
+            args.command, getattr(args, "label", None) or getattr(args, "label_or_id", None)
+        )
     if args.command == "dashboard":
         return command_build_dashboard(args.history, args.out, repo_url=args.repo_url)
     if args.command == "record-skip":
