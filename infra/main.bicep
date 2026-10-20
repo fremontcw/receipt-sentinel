@@ -25,6 +25,9 @@ param customDomainCertificateId string = ''
 @description('GitHub repository allowed to deploy, owner/name.')
 param githubRepo string = 'fremontcw/receipt-sentinel'
 
+@description('The repository as it appears in GitHub OIDC tokens, owner@ownerId/name@repoId. GitHub puts these immutable ids in the token subject, so a renamed or re-created repo cannot deploy.')
+param githubOidcRepo string = 'fremontcw@20915353/receipt-sentinel@1349754397'
+
 @description('First day of the budget period, YYYY-MM-01. Pass the same value on every run: Azure will not move the start date of a budget.')
 param budgetStartDate string
 
@@ -52,7 +55,7 @@ resource githubFederation 'Microsoft.ManagedIdentity/userAssignedIdentities/fede
   name: 'github-main'
   properties: {
     issuer: 'https://token.actions.githubusercontent.com'
-    subject: 'repo:${githubRepo}:ref:refs/heads/main'
+    subject: 'repo:${githubOidcRepo}:ref:refs/heads/main'
     audiences: ['api://AzureADTokenExchange']
   }
 }

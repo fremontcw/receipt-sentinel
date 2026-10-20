@@ -32,7 +32,9 @@ def test_bicep_has_no_secret_values() -> None:
 
 
 def test_bicep_federated_subject_is_main_only() -> None:
-    assert "subject: 'repo:${githubRepo}:ref:refs/heads/main'" in BICEP
+    # GitHub's OIDC subject carries immutable owner and repo ids: repo:owner@id/name@id:...
+    assert "subject: 'repo:${githubOidcRepo}:ref:refs/heads/main'" in BICEP
+    assert "param githubOidcRepo string = 'fremontcw@20915353/receipt-sentinel@1349754397'" in BICEP
     assert BICEP.count("federatedIdentityCredentials@") == 1
 
 
