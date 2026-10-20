@@ -1,0 +1,9 @@
+# Deny everything, allow back only what the image needs: _raw_receipts/, credentials.json,
+# token.json, .env, data/ and runs/ can then never end up in an image layer
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+!config/
+!examples/
