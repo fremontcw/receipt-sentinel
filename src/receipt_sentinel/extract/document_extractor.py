@@ -51,6 +51,8 @@ SKEW_MIN_CORRECTION_DEGREES = 0.5
 # Interpreter start-up + imports in the worker, on top of the document's own time limit
 WORKER_STARTUP_GRACE_SECONDS = 5.0
 WORKER_MODULE = "receipt_sentinel.extract.extraction_worker"
+# Decoders Pillow may pick: the sniff checks magic bytes, this stops it trying any other
+_IMAGE_FORMATS = ("PNG", "JPEG")
 # Modes Tesseract (via a PNG hand-off) can take; anything else (CMYK, P, I;16) is converted
 _OCR_IMAGE_MODES = frozenset({"1", "L", "LA", "RGB", "RGBA"})
 
@@ -192,12 +194,12 @@ def _render_page(page: pymupdf.Page) -> Image.Image:
     if dpi < 1:
         raise ExtractionRejected("too_large", "a PDF page is too large to read")
     pixmap = page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY)
-    return Image.open(io.BytesIO(pixmap.tobytes("png")))
+    return Image.open(io.BytesIO(pixmap.tobytes("png")), formats=_IMAGE_FORMATS)
 
 
 def _open_image(data: bytes) -> Image.Image:
     try:
-        image = Image.open(io.BytesIO(data))  # lazy: reads the header only
+        image = Image.open(io.BytesIO(data), formats=_IMAGE_FORMATS)  # lazy: reads the header only
         if image.width * image.height > MAX_IMAGE_PIXELS:
             raise ExtractionRejected("too_large", "the image is too large to read")
         image.load()
@@ -254,6 +256,9 @@ def _ocr_image(image: Image.Image, deadline: float) -> tuple[str, float | None]:
         )
     except pytesseract.TesseractNotFoundError as err:
         raise OcrUnavailable() from err
+    except pytesseract.TesseractError as err:  # bad image or missing language data
+        logger.error("tesseract failed: %s", err.message)
+        raise ExtractionRejected("unreadable", "the image could not be read by OCR") from err
     except RuntimeError as err:  # pytesseract's timeout
         raise ExtractionRejected("timeout", "reading the file took too long") from err
     return _join_ocr_words(words)

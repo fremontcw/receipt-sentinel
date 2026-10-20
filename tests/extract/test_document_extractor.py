@@ -14,6 +14,7 @@ from receipt_sentinel.evals.synthetic_fixture_renderer import (
     render_scanned_pdf,
 )
 from receipt_sentinel.extract.document_extractor import (
+    _open_image,
     estimate_skew_degrees,
     extract_document,
     extract_document_in_process,
@@ -107,6 +108,25 @@ def test_missing_tesseract_raises_ocr_unavailable(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(pytesseract, "image_to_data", not_installed)
     with pytest.raises(OcrUnavailable, match="brew install tesseract"):
         extract_document_in_process(render_scanned_pdf(RECEIPT))
+
+
+def test_tesseract_error_is_unreadable_not_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def tesseract_fails(*args: object, **kwargs: object) -> None:
+        raise pytesseract.TesseractError(1, "Failed loading language 'eng'")
+
+    monkeypatch.setattr(pytesseract, "image_to_data", tesseract_fails)
+    with pytest.raises(ExtractionRejected) as err:
+        extract_document_in_process(render_scanned_pdf(RECEIPT))
+    assert err.value.kind == "unreadable"
+
+
+def test_image_decoders_are_limited_to_png_and_jpeg() -> None:
+    gif = io.BytesIO()
+    Image.new("L", (10, 10)).save(gif, format="GIF")
+    # Past the magic-byte sniff, Pillow must not fall back to any other decoder it knows
+    with pytest.raises(ExtractionRejected) as err:
+        _open_image(gif.getvalue())
+    assert err.value.kind == "unreadable"
 
 
 def test_corrupt_page_tree_is_unreadable_not_a_crash() -> None:

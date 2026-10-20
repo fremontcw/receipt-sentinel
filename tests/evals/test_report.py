@@ -73,3 +73,18 @@ def test_report_escapes_model_output_and_has_no_script() -> None:
     assert cases[0].id in html
     assert "<svg" in html and "polyline" in html
     assert "CRITICAL" in html or "WARN" in html or "PASS" in html
+
+
+def test_report_shows_why_a_fixture_failed_to_extract() -> None:
+    cases = load_golden_cases()[:3]
+    base = run("base", [score(c, True) for c in cases])
+    failed = score(cases[0], False)
+    failed = CaseScore(**{**vars(failed), "actual": {"extract_error": "the PDF is damaged"}})
+    cur = run("cur", [failed] + [score(c, True) for c in cases[1:]])
+    diff = diff_against_baseline(
+        cur,
+        base,
+        thresholds=Thresholds(),
+        case_categories={c.id: c.expected.category.value for c in cases},
+    )
+    assert "extract_error: the PDF is damaged" in render_report_html(cur, diff, cases, [base, cur])

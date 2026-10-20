@@ -50,7 +50,7 @@ def extract_fixture_cases(
             continue
         try:
             document: ExtractedDocument = _extract_cached((golden_dir / case.fixture).read_bytes())
-        except (ExtractionRejected, FileNotFoundError) as err:
+        except (ExtractionRejected, OSError) as err:  # OSError: missing, a directory, unreadable
             errors[case.id] = str(err)
             extracted.append(case)
             continue

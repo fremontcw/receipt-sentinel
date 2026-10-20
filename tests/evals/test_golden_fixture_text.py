@@ -33,3 +33,13 @@ def test_failed_fixture_is_reported_not_raised(tmp_path: Path) -> None:
     assert set(errors) == {NATIVE_ID}
     assert "damaged" in errors[NATIVE_ID]
     assert len(extracted) == len(cases)
+
+
+def test_unreadable_fixture_path_is_reported_not_raised(tmp_path: Path) -> None:
+    golden = tmp_path / "golden"
+    shutil.copytree(GOLDEN_DIR, golden)
+    fixture = golden / "fixtures" / f"{NATIVE_ID}.pdf"
+    fixture.unlink()
+    fixture.mkdir()  # a directory where the file should be: read_bytes raises IsADirectoryError
+    _, errors = extract_fixture_cases(load_golden_cases(golden), golden)
+    assert set(errors) == {NATIVE_ID}

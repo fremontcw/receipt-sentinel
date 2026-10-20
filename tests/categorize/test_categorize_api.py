@@ -1,5 +1,7 @@
 import shutil
+from pathlib import Path
 
+import pymupdf
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -9,7 +11,9 @@ from receipt_sentinel.categorize.categorize_api import (
     SAMPLE_CASES,
     build_app,
 )
+from receipt_sentinel.evals import golden_fixture_text
 from receipt_sentinel.evals.golden_case import GOLDEN_DIR, GoldenCase, load_golden_cases
+from receipt_sentinel.evals.synthetic_fixture_renderer import render_native_pdf
 from receipt_sentinel.extract.extracted_document import MAX_ATTACHMENT_BYTES
 
 needs_tesseract = pytest.mark.skipif(shutil.which("tesseract") is None, reason="needs tesseract")
@@ -91,3 +95,52 @@ def test_html_named_pdf_is_unsupported_media_type(keyless_client: TestClient) ->
 def test_upload_over_ten_megabytes_is_too_large(keyless_client: TestClient) -> None:
     response = _upload(keyless_client, b"%PDF-" + b"\0" * MAX_ATTACHMENT_BYTES)
     assert response.status_code == 413
+
+
+def test_heic_upload_is_unsupported_media_type(keyless_client: TestClient) -> None:
+    response = _upload(keyless_client, b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00", "a.heic")
+    assert response.status_code == 415
+    assert "JPEG" in response.json()["detail"]
+
+
+def test_encrypted_pdf_upload_is_unprocessable(keyless_client: TestClient) -> None:
+    doc = pymupdf.open(stream=render_native_pdf("TOTAL 1.00"), filetype="pdf")
+    locked = doc.tobytes(encryption=pymupdf.PDF_ENCRYPT_AES_256, user_pw="x", owner_pw="y")
+    response = _upload(keyless_client, locked)
+    assert response.status_code == 422
+    assert "password" in response.json()["detail"]
+
+
+@pytest.fixture
+def keyless_client_without_tesseract(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> TestClient:
+    # The extraction worker is a subprocess, so hide the binary rather than patch pytesseract
+    monkeypatch.setenv("PATH", str(tmp_path))
+    golden_fixture_text._extract_cached.cache_clear()
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("SENTINEL_PROVIDER", raising=False)
+    client = TestClient(build_app())
+    golden_fixture_text._extract_cached.cache_clear()  # keep OCR-less results out of later tests
+    return client
+
+
+def test_keyless_server_without_tesseract_still_reads_text_pdf_fixtures(
+    keyless_client_without_tesseract: TestClient,
+) -> None:
+    case = _fixture_case("fixture_pdf_native_0001_dining_easy")
+    assert case.fixture is not None
+    response = _upload(keyless_client_without_tesseract, (GOLDEN_DIR / case.fixture).read_bytes())
+    assert response.status_code == 200
+    assert response.json()["record"]["total"] == str(case.expected.total)
+
+
+def test_photo_upload_without_tesseract_is_service_unavailable(
+    keyless_client_without_tesseract: TestClient,
+) -> None:
+    case = _fixture_case("fixture_photo_adversarial_0001_override")
+    assert case.fixture is not None
+    data = (GOLDEN_DIR / case.fixture).read_bytes()
+    response = _upload(keyless_client_without_tesseract, data, "photo.jpg")
+    assert response.status_code == 503
+    assert "tesseract" in response.json()["detail"].lower()
