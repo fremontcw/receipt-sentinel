@@ -83,14 +83,18 @@ Harness loop:
 
 ## Eval methodology
 
-**Dataset** — 67 golden cases at dataset version 2: 48 seeded synthetic
+**Dataset** — 85 golden cases at dataset version 3: 48 seeded synthetic
 (`scripts/generate_synthetic_golden_cases.py`, deterministic), 8
-hand-written adversarial cases, and 11 file fixtures (text PDFs, scanned
+hand-written adversarial cases, 11 file fixtures (text PDFs, scanned
 PDFs, tilted phone photos; `scripts/render_golden_fixtures.py`) that go
-through the extract layer, so the gate covers extraction too. Real-model
-baseline (`claude-sonnet-5`): 97.0%, every adversarial case passing, $0.22 per run. Zero `real_redacted` cases so far; the
-author adds them via `scripts/redaction_checklist.md` and
-`sentinel evals promote`. Full sourcing, labeling, and known limitations are
+through the extract layer, so the gate covers extraction too, and 18 of the
+author's own email receipts, redacted per `scripts/redaction_checklist.md` and
+approved one by one on a keyboard review page
+(`scripts/build_redaction_review.py`). Real-model baseline
+(`claude-sonnet-5`): 92.9%, every adversarial case passing, $0.28 per run.
+Three of the six misses are real receipts: the model writes "Meijer
+(Instacart)" where the label says "Meijer", and files Roblox under
+subscriptions — the kind of ambiguity synthetic data never shows. Full sourcing, labeling, and known limitations are
 in [`src/receipt_sentinel/evals/golden/DATASET_CARD.md`](src/receipt_sentinel/evals/golden/DATASET_CARD.md).
 
 **Scoring dimensions per case:**
@@ -153,15 +157,15 @@ from the golden labels — a perfect model, by construction. That's what
 `baseline_fake.json` is blessed from, and what CI's keyless smoke run
 exercises (100% pass, PASS).
 
-`--demo-noise` adds deterministic damage on top of that oracle: ~6% of cases
+`--demo-noise` adds deterministic damage on top of that oracle: 10% of cases
 are mis-categorised to `other`. Diffed against the clean baseline, that is a
-real regression, so `make demo` prints **CRITICAL** at −9.0 pts with 6
+real regression, so `make demo` prints **CRITICAL** at −10.6 pts with 9
 regressed cases and exits 1 — which the `make` target catches so the demo
 itself still succeeds. The resulting report is committed at
 [`docs/sample_report.html`](docs/sample_report.html) — open it directly, or
 see below.
 
-![Sample regression report: CRITICAL, pass rate 100% → 91%](docs/sample_report.png)
+![Sample regression report: CRITICAL, pass rate 100% → 89%](docs/sample_report.png)
 
 ![Regressed cases: expected, baseline and current output side by side](docs/sample_report_regressions.png)
 

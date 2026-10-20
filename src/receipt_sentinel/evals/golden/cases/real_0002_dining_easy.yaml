@@ -1,0 +1,45 @@
+id: real_0002_dining_easy
+difficulty: easy
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; DoorDash confirmation,
+  total only; date from header; author-reviewed 2026-10-20
+email_date: '2026-10-09'
+receipt_text: 'Subject: Order Confirmation for [REDACTED] from Skyline Chili
+
+  Date: Fri, 9 Oct 2026 19:15:14 -0400
+
+
+  DoorDash Order Confirmation
+
+
+  Thanks for your order, [REDACTED]
+
+
+  The estimated delivery time for your order is 7:28 PM - 7:38 PM. Track your order
+  in the DoorDash app or website.
+
+
+  Paid with [REDACTED] and/or credits Skyline Chili Total: $59.03
+
+
+  Your receipt [REDACTED]
+
+
+  Estimated Total
+
+  $59.03
+
+
+  View Full Receipt Get Order Help
+
+  '
+expected:
+  vendor: Skyline Chili
+  total: '59.03'
+  currency: USD
+  date: '2026-10-09'
+  category: dining
+  line_items: []
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

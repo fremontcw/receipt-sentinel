@@ -14,6 +14,7 @@ Todo:
 
 import asyncio
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -73,6 +74,7 @@ from receipt_sentinel.prompts.prompt_config import load_active_prompt
 from receipt_sentinel.telemetry import TracingLlmClient
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+DEMO_NOISE_SHARE = 0.10  # --demo-noise mis-categorises this share of the golden set
 
 
 @dataclass(frozen=True)
@@ -129,18 +131,23 @@ def _label_oracle(cases: list[GoldenCase], *, noisy: bool) -> FakeLlmClient:
 
     Args:
         cases: Golden cases whose labels supply the answers.
-        noisy: When set, deterministically mis-categorises ~6% of cases, so the demo has a
-            regression to catch against a baseline blessed from a clean run.
+        noisy: When set, deterministically mis-categorises DEMO_NOISE_SHARE of cases, so the
+            demo has a regression to catch against a baseline blessed from a clean run.
     """
+
+    # A fixed share, not a hash modulus: the drop must clear the CRITICAL threshold however
+    # many cases the golden set holds. Cases already labelled OTHER wouldn't change.
+    candidates = sorted(
+        (c for c in cases if c.expected.category is not Category.OTHER),
+        key=lambda c: sha1(c.id.encode()).hexdigest(),  # noqa: S324 - not security
+    )
+    noisy_ids = {c.id for c in candidates[: math.ceil(len(cases) * DEMO_NOISE_SHARE)]}
 
     def respond(request: LlmRequest) -> str:
         for case in cases:
             if case.receipt_text.strip() in request.user:
                 answer = case.expected.model_dump(mode="json")
-                mis_categorise = (
-                    int(sha1(case.id.encode()).hexdigest(), 16) % 17 == 0  # noqa: S324 - not security
-                )
-                if noisy and mis_categorise:
+                if noisy and case.id in noisy_ids:
                     answer["category"] = Category.OTHER.value
                 return json.dumps(answer)
         return "{}"
@@ -288,7 +295,7 @@ def command_evals_run(
         save: Store the run in the local history (never for PROVIDER_UNSTABLE runs).
         slack_webhook: Incoming-webhook URL, or None to skip alerting.
         report_url: URL linked from the Slack alert.
-        demo_noise: With `fake`, mis-categorise ~6% of cases so the demo shows a regression.
+        demo_noise: With `fake`, mis-categorise ~10% of cases so the demo shows a regression.
         provider: "anthropic" or "azure" (Claude via Microsoft Foundry) for real runs.
         client_override: Test-only seam — an LlmClient to use instead of building one, so
             tests can exercise the provider-error and regression merge gates without a
@@ -456,7 +463,7 @@ def command_compare_models(
         incumbent_provider: "anthropic" or "azure" for the incumbent.
         candidate_provider: "anthropic" or "azure" for the candidate.
         fake: Compare label oracles instead of real models (no API key needed).
-        demo_noise: With `fake`, make the candidate mis-categorise ~6% of cases.
+        demo_noise: With `fake`, make the candidate mis-categorise ~10% of cases.
 
     Returns:
         Process exit code: 1 on a CRITICAL diff, else 0.

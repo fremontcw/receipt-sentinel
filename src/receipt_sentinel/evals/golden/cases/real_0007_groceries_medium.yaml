@@ -1,0 +1,132 @@
+id: real_0007_groceries_medium
+difficulty: medium
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; DoorDash final receipt
+  with tip and tax; one personal item redacted, amount kept; groceries vs home is
+  arguable; author-reviewed 2026-10-20
+email_date: '2026-10-13'
+receipt_text: 'Subject: Final receipt for [REDACTED] from DashMart.
+
+  Date: Tue, 13 Oct 2026 18:36:04 -0400
+
+
+  DoorDash
+
+
+  Your final receipt.
+
+
+  Paid with [REDACTED] DashMart (CIN-2) 8460 Vorhees Ln, Cincinnati, OH 45236, USA
+  Total: $82.88
+
+
+  Your receipt [REDACTED] [REDACTED]
+
+
+  Items you ordered
+
+
+  4x Moment Cherry Hibiscus Adaptogen Drink Can (11.5 fl oz)
+
+  $16.76
+
+
+  1x Inaba Churu Grain-Free Tuna & Seafood Cat Treats Tubes Variety Box (0.5 oz x
+  20 ct)
+
+  $9.99
+
+
+  1x [REDACTED]
+
+  $10.29
+
+
+  [REDACTED]
+
+
+  1x Tide Power PODs + Downy Laundry Detergent Pods April Fresh (25 ct)
+
+  $16.79
+
+
+  1x Febreze Extra Strength Fabric Refresher (14.8 fl oz)
+
+  $6.09
+
+
+  1x Bounce Outdoor Fresh 5 in 1 Dryer Sheets (80 ct)
+
+  $6.99
+
+
+  Subtotal
+
+  $66.91
+
+
+  Taxes
+
+  $5.22
+
+
+  Delivery fee
+
+  $0.00
+
+
+  Service fee
+
+  $0.00
+
+
+  Dasher tip
+
+  $10.75
+
+
+  Total
+
+  $82.88
+
+
+  Payment
+
+
+  Paid with [REDACTED]
+
+  $82.88
+
+
+  [REDACTED]
+
+
+  [REDACTED]
+
+  '
+expected:
+  vendor: DashMart
+  total: '82.88'
+  currency: USD
+  date: '2026-10-13'
+  category: groceries
+  line_items:
+  - description: Moment Cherry Hibiscus Adaptogen Drink Can x4
+    amount: '16.76'
+  - description: Inaba Churu Cat Treats Variety Box
+    amount: '9.99'
+  - description: '[REDACTED]'
+    amount: '10.29'
+  - description: Tide Power PODs + Downy Laundry Detergent Pods
+    amount: '16.79'
+  - description: Febreze Extra Strength Fabric Refresher
+    amount: '6.09'
+  - description: Bounce Dryer Sheets
+    amount: '6.99'
+  - description: Taxes
+    amount: '5.22'
+  - description: Dasher tip
+    amount: '10.75'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null

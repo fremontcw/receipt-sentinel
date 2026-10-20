@@ -1,0 +1,51 @@
+id: real_0015_other_easy
+difficulty: easy
+source: real_redacted
+notes: email receipt, footer trimmed; Subject/Date headers kept; in-game currency;
+  author-reviewed 2026-10-20
+email_date: '2026-10-03'
+receipt_text: 'Subject: Your Roblox receipt [[REDACTED]]
+
+  Date: Sat, 3 Oct 2026 20:39:49 -0400
+
+
+  Receipt from Roblox Receipt [REDACTED]
+
+  Amount paid
+
+  $9.99
+
+
+  Date paid
+
+  Oct 3, 2026, 5:38:29 PM
+
+
+  Payment method
+
+  Apple Pay
+
+
+  Summary
+
+
+  1000 Robux x 1 : $9.99
+
+
+  Subtotal : $9.99
+
+  Amount paid : $9.99
+
+  '
+expected:
+  vendor: Roblox
+  total: '9.99'
+  currency: USD
+  date: '2026-10-03'
+  category: other
+  line_items:
+  - description: 1000 Robux
+    amount: '9.99'
+  confidence: 1.0
+  injection_detected: false
+error_tag: null
