@@ -155,13 +155,15 @@ exercises (100% pass, PASS).
 
 `--demo-noise` adds deterministic damage on top of that oracle: ~6% of cases
 are mis-categorised to `other`. Diffed against the clean baseline, that is a
-real regression, so `make demo` prints **CRITICAL** at −10.7 pts with 6
+real regression, so `make demo` prints **CRITICAL** at −9.0 pts with 6
 regressed cases and exits 1 — which the `make` target catches so the demo
 itself still succeeds. The resulting report is committed at
 [`docs/sample_report.html`](docs/sample_report.html) — open it directly, or
 see below.
 
-<!-- ![Sample regression report](docs/sample_report.png) -->
+![Sample regression report: CRITICAL, pass rate 100% → 91%](docs/sample_report.png)
+
+![Regressed cases: expected, baseline and current output side by side](docs/sample_report_regressions.png)
 
 The report lists each regressed case side by side: expected value, previous
 (baseline) output, current output, and which scoring dimension flipped —

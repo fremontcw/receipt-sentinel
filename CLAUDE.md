@@ -53,7 +53,7 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    module header).
 7. Still-open author actions from August (first real run + baseline done 2026-10-17: claude-sonnet-5,
    98.2%, $0.19/run; key is a Default-workspace key, in GitHub secrets + macOS keychain `anthropic-api-key`):
-   ~20 redacted real receipts per `scripts/redaction_checklist.md`; `docs/sample_report.png`; optional
+   ~20 redacted real receipts per `scripts/redaction_checklist.md`; optional
    `SLACK_WEBHOOK_URL` secret.
 8. ~~Spec §7 step 6~~ done 2026-10-19 (plan `docs/superpowers/plans/2026-10-19-extract-and-validate.md`):
    `extract/` (PyMuPDF + Tesseract `--psm 6`, runs in a worker process killed at 30 s, caps per spec
