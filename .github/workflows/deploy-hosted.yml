@@ -1,0 +1,61 @@
+# After the tests pass on main: builds the image and pushes it to GHCR tagged with the commit
+# SHA, then (once the repo variables from infra/hosted_demo_setup.md exist) points the hosted
+# demo's container app at that SHA. Azure sign-in is OIDC: no Azure secret in GitHub.
+# Each job gets only the permissions it needs.
+name: deploy-hosted
+
+on:
+  workflow_run:
+    workflows: [tests]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: deploy-hosted
+  cancel-in-progress: false
+
+jobs:
+  # Runs on every green main, Azure or not: the first Azure deploy needs an image to point at
+  image:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SHA }}
+      - name: Build and push the image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build --build-arg GIT_SHA="${SHA::7}" -t "$IMAGE:$SHA" .
+          docker push "$IMAGE:$SHA"
+  deploy:
+    needs: image
+    if: vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Point the container app at this commit
+        run: |
+          az containerapp update --name receipt-sentinel \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --image "$IMAGE:$SHA"
