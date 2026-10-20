@@ -59,3 +59,9 @@ def test_deploy_skips_without_azure_vars() -> None:
     image_job, deploy_job = workflow.split("  deploy:")
     assert "id-token: write" not in image_job and "id-token: write" in deploy_job
     assert "packages: write" in image_job and "packages: write" not in deploy_job
+
+
+def test_budget_start_date_is_fixed_not_now() -> None:
+    # A budget's start date can't move; utcNow() would change it on a later month's re-run
+    assert "utcNow(" not in BICEP
+    assert "param budgetStartDate string" in BICEP

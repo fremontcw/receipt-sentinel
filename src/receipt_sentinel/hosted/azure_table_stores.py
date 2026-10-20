@@ -34,6 +34,7 @@ TABLES_ENDPOINT_ENV_VAR = "SENTINEL_TABLES_ENDPOINT"
 _LINK_PARTITION = "link"
 _SPEND_PARTITION = "spend"
 _SPEND_ATTEMPTS = 5
+STORE_TIMEOUT_SECONDS = 2
 
 
 def table_service_from_env() -> TableServiceClient | None:
@@ -41,7 +42,14 @@ def table_service_from_env() -> TableServiceClient | None:
     endpoint = os.environ.get(TABLES_ENDPOINT_ENV_VAR)
     if not endpoint:
         return None
-    return TableServiceClient(endpoint, credential=DefaultAzureCredential())
+    # Fail fast: a slow store should drop visitors to free mode, not hold their requests
+    return TableServiceClient(
+        endpoint,
+        credential=DefaultAzureCredential(),
+        retry_total=1,
+        connection_timeout=STORE_TIMEOUT_SECONDS,
+        read_timeout=STORE_TIMEOUT_SECONDS,
+    )
 
 
 def _iso(value: datetime | None) -> str:
@@ -56,7 +64,9 @@ class TableLinkStore:
     """LinkStore in table `demolinks`: PartitionKey "link", RowKey = token SHA-256."""
 
     def __init__(self, service: TableServiceClient, table_prefix: str = "") -> None:
-        self._table: TableClient = service.create_table_if_not_exists(f"{table_prefix}demolinks")
+        # Bicep creates the table; touching the network here would turn a storage blip
+        # during a cold start into a dead site instead of free mode
+        self._table: TableClient = service.get_table_client(f"{table_prefix}demolinks")
 
     def add(self, link: DemoLink) -> None:
         self._table.create_entity(self._entity(link))
@@ -129,7 +139,7 @@ class TableSpendStore:
     """SpendStore in table `demospend`: PartitionKey "spend", RowKey = month."""
 
     def __init__(self, service: TableServiceClient, table_prefix: str = "") -> None:
-        self._table: TableClient = service.create_table_if_not_exists(f"{table_prefix}demospend")
+        self._table: TableClient = service.get_table_client(f"{table_prefix}demospend")
 
     def spent_usd(self, month: str) -> float:
         row = self._row(month)

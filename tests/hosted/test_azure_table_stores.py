@@ -29,12 +29,16 @@ def service() -> Iterator[TableServiceClient]:
         client.delete_table(table.name)
 
 
-def _prefix() -> str:
-    return f"t{uuid.uuid4().hex[:8]}"
+def _prefix(service: TableServiceClient) -> str:
+    # The deployed tables come from Bicep; the stores never create them
+    prefix = f"t{uuid.uuid4().hex[:8]}"
+    service.create_table(f"{prefix}demolinks")
+    service.create_table(f"{prefix}demospend")
+    return prefix
 
 
 def test_table_link_round_trip_keeps_utc(service: TableServiceClient) -> None:
-    store = TableLinkStore(service, table_prefix=_prefix())
+    store = TableLinkStore(service, table_prefix=_prefix(service))
     token, link = issue_link(store, "Acme - Jane", NOW)
     stored = store.get(hash_token(token))
     assert stored is not None
@@ -46,7 +50,7 @@ def test_table_link_round_trip_keeps_utc(service: TableServiceClient) -> None:
 
 
 def test_table_last_call_race_lets_exactly_one_through(service: TableServiceClient) -> None:
-    store = TableLinkStore(service, table_prefix=_prefix())
+    store = TableLinkStore(service, table_prefix=_prefix(service))
     token, _ = issue_link(store, "a", NOW)
     for _ in range(CALL_CAP - 1):
         try_spend_call(store, token, NOW)
@@ -58,7 +62,7 @@ def test_table_last_call_race_lets_exactly_one_through(service: TableServiceClie
 
 
 def test_table_spend_add_and_month_rows(service: TableServiceClient) -> None:
-    store = TableSpendStore(service, table_prefix=_prefix())
+    store = TableSpendStore(service, table_prefix=_prefix(service))
     assert store.spent_usd("2026-10") == 0.0
     store.add_usd("2026-10", 0.25)
     assert store.add_usd("2026-10", 0.5) == pytest.approx(0.75)

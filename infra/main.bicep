@@ -25,8 +25,8 @@ param customDomainCertificateId string = ''
 @description('GitHub repository allowed to deploy, owner/name.')
 param githubRepo string = 'fremontcw/receipt-sentinel'
 
-@description('First day of the budget period; leave the default.')
-param budgetStartDate string = utcNow('yyyy-MM-01')
+@description('First day of the budget period, YYYY-MM-01. Pass the same value on every run: Azure will not move the start date of a budget.')
+param budgetStartDate string
 
 var prefix = 'rsdemo${uniqueString(resourceGroup().id)}'
 var image = 'ghcr.io/${githubRepo}:${imageTag}'

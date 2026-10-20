@@ -23,7 +23,14 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 from starlette.concurrency import run_in_threadpool
 
@@ -73,6 +80,7 @@ LINK_NOTICES: dict[LinkState, str] = {
 }
 STORE_DOWN_NOTICE = f"Personal links are unavailable right now. {STILL_FREE}"
 MODEL_DOWN = f"The real model is unavailable right now; {STILL_FREE[0].lower()}{STILL_FREE[1:]}"
+INVALID_REQUEST = f"send exactly one known sample, or a whole-number seed from 0 to {MAX_SEED}"
 IMAGE_LIMITER_PER_IP = 60
 IMAGE_LIMITER_PER_DAY = 3000
 
@@ -137,10 +145,11 @@ def _checks(record: ModelOutput, expected: ModelOutput) -> dict[str, bool]:
 
 
 def _client_ip(request: Request) -> str:
-    # Container Apps' ingress puts the visitor first in X-Forwarded-For
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded.split(",")[0].strip():
-        return forwarded.split(",")[0].strip()
+    # Container Apps' ingress appends the address it saw, so only the last entry is real;
+    # anything to its left was sent by the client and can be made up
+    last = request.headers.get("x-forwarded-for", "").split(",")[-1].strip()
+    if last:
+        return last
     return request.client.host if request.client else "unknown"
 
 
@@ -226,10 +235,12 @@ class HostedDemo:
         self, receipt: DemoReceipt, token: str | None, ip: str, tasks: BackgroundTasks
     ) -> ExtractResponse:
         """Real mode when the link has a call left (counted first), else free mode."""
-        current = self.status_for(token)
+        current = await run_in_threadpool(self.status_for, token)
         if current.mode == "real" and token:
             try:
-                decision = try_spend_call(self.link_store, token, self.now())
+                decision = await run_in_threadpool(
+                    try_spend_call, self.link_store, token, self.now()
+                )
             except Exception as err:  # noqa: BLE001 - fail closed to free mode
                 logger.error("demo link store unavailable: %s", type(err).__name__)
                 return await self._free_extract(
@@ -237,7 +248,7 @@ class HostedDemo:
                 )
             if decision.allowed:
                 return await self._real_extract(receipt, decision, token, tasks)
-            current = self.status_for(token)
+            current = await run_in_threadpool(self.status_for, token)
         return await self._free_extract(receipt, ip, current)
 
     async def _real_extract(
@@ -254,7 +265,8 @@ class HostedDemo:
             logger.error("demo model call failed: %s", type(err).__name__)
             raise HTTPException(503, MODEL_DOWN) from err
         usage = result.response
-        self._record_cost(self.pricing.cost_usd(usage.input_tokens, usage.output_tokens), tasks)
+        cost_usd = self.pricing.cost_usd(usage.input_tokens, usage.output_tokens)
+        await run_in_threadpool(self._record_cost, cost_usd, tasks)
         if decision.first_use and decision.link is not None:
             tasks.add_task(self.alerts.link_first_used, decision.link.label, self.now())
         return ExtractResponse(
@@ -265,7 +277,7 @@ class HostedDemo:
             model_id=self.model_id,
             latency_ms=int((time.monotonic() - started) * 1000),
             extraction_method=method,
-            status=self.status_for(token),
+            status=await run_in_threadpool(self.status_for, token),
         )
 
     def _record_cost(self, cost_usd: float, tasks: BackgroundTasks) -> None:
@@ -305,12 +317,19 @@ def build_hosted_app(demo: HostedDemo, *, sample_report: Path) -> FastAPI:
     image_limiter = FreeModeLimiter(per_ip=IMAGE_LIMITER_PER_IP, per_day=IMAGE_LIMITER_PER_DAY)
     app = FastAPI(title="Receipt Sentinel demo", docs_url=None, redoc_url=None, openapi_url=None)
 
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # A fixed message: the default echoes the input, and a seed of 1e400 or NaN can't be
+        # encoded back as JSON, which turned a bad request into a 500
+        return JSONResponse({"detail": INVALID_REQUEST}, status_code=422)
+
+    # Plain def (not async) routes run in a worker thread: store calls are blocking SDK calls
     @app.get("/", response_model=None)
-    async def home(k: str | None = None) -> Response:
+    def home(k: str | None = None) -> Response:
         return HTMLResponse(page) if k is None else demo.arrival(k)
 
     @app.get("/api/status")
-    async def status(request: Request) -> DemoStatus:
+    def status(request: Request) -> DemoStatus:
         return demo.status_for(request.cookies.get(COOKIE_NAME))
 
     @app.post("/api/extract")
@@ -331,7 +350,8 @@ def build_hosted_app(demo: HostedDemo, *, sample_report: Path) -> FastAPI:
             sample is not None and sample not in SAMPLE_RECEIPTS
         ):
             raise HTTPException(422, "send exactly one known sample or a seed")
-        if image_limiter.check(_client_ip(request), demo.now()) != "ok":
+        # The four samples are cached renders; only random seeds cost CPU
+        if seed is not None and image_limiter.check(_client_ip(request), demo.now()) != "ok":
             raise HTTPException(429, "too many tries; wait a few minutes")
         data, media_type = await run_in_threadpool(receipt_image, _resolve(sample, seed))
         return Response(data, media_type=media_type)

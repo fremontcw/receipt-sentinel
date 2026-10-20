@@ -178,6 +178,77 @@ def test_bad_extract_bodies_are_422(body: dict[str, Any]) -> None:
     assert h.model.calls == []
 
 
+@pytest.mark.parametrize("raw", ['{"seed": 1e400}', '{"seed": -1e400}', '{"seed": NaN}'])
+def test_non_finite_seed_is_422_not_500(raw: str) -> None:
+    h = Harness()
+    response = h.http.post(
+        "/api/extract", content=raw, headers={"Content-Type": "application/json"}
+    )
+    assert response.status_code == 422
+    assert h.model.calls == []
+
+
+def test_ip_limit_uses_the_ingress_appended_address() -> None:
+    # Container Apps appends the real client IP; a client can only prepend made-up ones
+    h = Harness()
+    for n in range(30):
+        headers = {"X-Forwarded-For": f"10.9.9.{n}, 203.0.113.7"}
+        assert (
+            h.http.post("/api/extract", json={"sample": "clean"}, headers=headers).status_code
+            == 200
+        )
+    spoofed = {"X-Forwarded-For": "10.9.9.99, 203.0.113.7"}
+    assert h.http.post("/api/extract", json={"sample": "clean"}, headers=spoofed).status_code == 429
+
+
+def test_sample_images_are_never_rate_limited() -> None:
+    h = Harness()
+    for _ in range(80):
+        assert h.http.get("/api/receipt-image?sample=clean").status_code == 200
+
+
+def test_slow_link_store_does_not_stall_other_visitors() -> None:
+    import asyncio
+    import time
+
+    import httpx
+
+    h = Harness()
+    token = h.arrive()
+    real_get = h.links.get
+
+    def slow_get(token_sha256: str) -> object:
+        time.sleep(0.8)  # a slow Table Storage call, blocking like the Azure SDK
+        return real_get(token_sha256)
+
+    h.links.get = slow_get  # type: ignore[method-assign]
+    finished: list[str] = []
+
+    async def run() -> None:
+        transport = httpx.ASGITransport(app=h.http.app)
+        base = "https://testserver"
+        async with (
+            httpx.AsyncClient(
+                transport=transport, base_url=base, cookies={COOKIE_NAME: token}
+            ) as link_holder,
+            httpx.AsyncClient(transport=transport, base_url=base) as visitor,
+        ):
+
+            async def slow() -> None:
+                await link_holder.get("/api/status")
+                finished.append("slow")
+
+            async def fast() -> None:
+                await asyncio.sleep(0.1)
+                await visitor.get("/api/status")
+                finished.append("fast")
+
+            await asyncio.gather(slow(), fast())
+
+    asyncio.run(run())
+    assert finished == ["fast", "slow"]
+
+
 def test_hosted_mode_has_no_upload_or_free_text_routes() -> None:
     h = Harness()
     assert h.http.post("/categorize", json={"receipt_text": "x"}).status_code in (404, 405)

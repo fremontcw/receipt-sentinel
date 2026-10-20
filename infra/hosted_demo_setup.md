@@ -15,10 +15,15 @@ az group create --name receipt-sentinel-demo --location eastus
 
 ## 2. Create everything except the app
 
+Pick the budget's start month once (this month's 1st) and use the same value on every later
+run, or Azure rejects the re-run:
+
 ```bash
+export BUDGET_START=2026-11-01   # first day of the current month; write it down
 az deployment group create --resource-group receipt-sentinel-demo \
   --template-file infra/main.bicep \
   --parameters alertEmail=YOU@EXAMPLE.COM imageTag=none deployApp=false \
+    budgetStartDate=$BUDGET_START \
   --query properties.outputs
 ```
 
@@ -51,6 +56,7 @@ SHA=$(git rev-parse origin/main)
 az deployment group create --resource-group receipt-sentinel-demo \
   --template-file infra/main.bicep \
   --parameters alertEmail=YOU@EXAMPLE.COM imageTag=$SHA deployApp=true \
+    budgetStartDate=$BUDGET_START \
   --query properties.outputs.appFqdn
 ```
 
