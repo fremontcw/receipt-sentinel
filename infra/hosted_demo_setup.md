@@ -119,8 +119,12 @@ email from `DoNotReply@...azurecomm.net` reaches `alertEmail` (check spam the fi
 
 ## If something looks wrong
 
-- Free mode only, even with a link: the Key Vault secret is missing or the app started before
-  it existed; re-run step 4.
+- The app won't start (step 4 fails, or the revision shows "Failed"): the Key Vault secret
+  `anthropic-api-key` is missing or your identity's access hasn't propagated yet. Check step 3,
+  wait a few minutes, and re-run step 4.
+- Rebuilding from scratch: Key Vault keeps a deleted vault for 7 days under the same name, so
+  re-creating the resource group fails on the vault. Purge it first:
+  `az keyvault purge --name <keyVaultName>`.
 - "Personal links are unavailable": the app's identity can't reach Table Storage yet (role
   assignments take a few minutes the first time).
 - Budget emails come from Azure Cost Management at 50% and 100% of $15.
