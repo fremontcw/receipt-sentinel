@@ -414,7 +414,7 @@ OIDC. One-time setup: `infra/hosted_demo_setup.md`.
   sampling parameters on this call — determinism instead comes from
   diffing against a committed baseline with tolerant per-field thresholds,
   not from byte-identical model output.
-- **Single labeler.** All 67 golden cases were labeled by one person; no
+- **Single labeler.** All 85 golden cases were labeled by one person; no
   second-rater agreement check exists yet.
 - **Public history is numbers only.** Receipt text and model answers never
   leave the author's machine once real receipts are in the golden set
