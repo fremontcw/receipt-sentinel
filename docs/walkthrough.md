@@ -28,7 +28,7 @@ Open `runs/demo/report.html`. Look at the **CRITICAL** status in the header, the
 expected, what the previous run said and what this run said. The demo injects noise on
 purpose, so the command reports CRITICAL; that is it working.
 
-**Say:** "This is 67 golden receipts run through the extractor and scored against the
+**Say:** "This is 85 golden receipts run through the extractor and scored against the
 baseline. On a pull request that touches a prompt, `.github/workflows/evals.yml` runs this
 with the real model and fails the check on CRITICAL, so the regression never merges."
 
