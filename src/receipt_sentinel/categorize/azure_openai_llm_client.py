@@ -39,6 +39,8 @@ RETRYABLE = (
 # OpenAI's finish_reason for a reply cut off at the token cap; categorize_receipt expects
 # the Anthropic spelling.
 _TRUNCATED = {"length": "max_tokens"}
+# Cap on a server-requested wait, so a bad header can't stall a run.
+MAX_RETRY_AFTER_SECONDS = 60.0
 
 
 class AzureOpenAiLlmClient:
@@ -61,7 +63,7 @@ class AzureOpenAiLlmClient:
             except RETRYABLE as err:
                 last_error = err
                 if attempt < self._max_retries:
-                    await asyncio.sleep(self._backoff_seconds * (2**attempt))
+                    await asyncio.sleep(_retry_delay(err, self._backoff_seconds * (2**attempt)))
         raise LlmTransientError(f"gave up after {self._max_retries} retries") from last_error
 
     async def _call_once(self, request: LlmRequest) -> LlmResponse:
@@ -101,6 +103,20 @@ class AzureOpenAiLlmClient:
             model_id=completion.model,
             stop_reason=_TRUNCATED.get(choice.finish_reason, choice.finish_reason),
         )
+
+
+def _retry_delay(err: Exception, backoff: float) -> float:
+    # Azure's 429 says how long its rate window needs (often 10-60 s); the short
+    # exponential backoff alone gave up before the window reset on a full golden run.
+    if isinstance(err, openai.RateLimitError):
+        try:
+            return min(
+                max(backoff, float(err.response.headers.get("retry-after", 0))),
+                MAX_RETRY_AFTER_SECONDS,
+            )
+        except ValueError:
+            pass
+    return backoff
 
 
 def build_azure_openai_llm_client(

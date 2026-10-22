@@ -121,3 +121,22 @@ async def test_a_prompt_blocked_by_azure_content_filter_reads_as_content_filter(
 
     response = await _client(azure).complete(REQ)
     assert (response.text, response.stop_reason) == ("", "content_filter")
+
+
+async def test_a_rate_limit_waits_as_long_as_azure_asks(monkeypatch: pytest.MonkeyPatch) -> None:
+    slept: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        slept.append(seconds)
+
+    monkeypatch.setattr("asyncio.sleep", fake_sleep)
+    replies = iter(
+        [
+            httpx2.Response(429, headers={"retry-after": "12"}, json={"error": {"message": "x"}}),
+            httpx2.Response(200, json=_completion('{"ok": true}')),
+        ]
+    )
+
+    response = await _client(lambda request: next(replies)).complete(REQ)
+    assert response.text == '{"ok": true}'
+    assert slept == [12.0]
