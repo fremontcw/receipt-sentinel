@@ -84,6 +84,10 @@ async def categorize_receipt(
         # Cut off mid-JSON. Score it as a parse failure rather than letting a partial
         # object fail schema validation with a misleading reason.
         raise ParseFailure(response.text, "truncated: stop_reason=max_tokens")
+    if response.stop_reason == "content_filter":
+        # The provider's safety filter refused the receipt (Azure flags injection receipts
+        # as jailbreaks): the model produced no record, so the case fails, the run goes on.
+        raise ParseFailure(response.text, "blocked by provider content filter")
     output = parse_model_output(response.text)
     record = ReceiptRecord.from_model_output(
         output, model_id=model_id, prompt_version=prompt.version

@@ -103,3 +103,21 @@ def test_azure_openai_provider_defaults_to_the_gpt_4_1_deployment(
         fake=False, demo_noise=False, cases=[], provider="azure-openai"
     )
     assert model_id == "gpt-4.1"
+
+
+async def test_a_prompt_blocked_by_azure_content_filter_reads_as_content_filter() -> None:
+    def azure(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            400,
+            json={
+                "error": {
+                    "message": "The response was filtered",
+                    "code": "content_filter",
+                    "param": "prompt",
+                    "status": 400,
+                }
+            },
+        )
+
+    response = await _client(azure).complete(REQ)
+    assert (response.text, response.stop_reason) == ("", "content_filter")

@@ -66,15 +66,30 @@ class AzureOpenAiLlmClient:
 
     async def _call_once(self, request: LlmRequest) -> LlmResponse:
         started = time.perf_counter()
-        # No temperature or response_format: Claude gets neither, so the comparison is fair.
-        completion = await self._client.chat.completions.create(
-            model=request.model_id,
-            max_completion_tokens=request.max_tokens,
-            messages=[
-                {"role": "system", "content": request.system},
-                {"role": "user", "content": request.user},
-            ],
-        )
+        try:
+            # No temperature or response_format: Claude gets neither, so the comparison is fair.
+            completion = await self._client.chat.completions.create(
+                model=request.model_id,
+                max_completion_tokens=request.max_tokens,
+                messages=[
+                    {"role": "system", "content": request.system},
+                    {"role": "user", "content": request.user},
+                ],
+            )
+        except openai.BadRequestError as err:
+            # Azure's prompt filter answers 400 instead of a reply. Report it the way an
+            # output-filtered reply reads (finish_reason "content_filter"); other 400s are
+            # broken setup and still propagate.
+            if err.code != "content_filter":
+                raise
+            return LlmResponse(
+                text="",
+                input_tokens=0,
+                output_tokens=0,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                model_id=request.model_id,
+                stop_reason="content_filter",
+            )
         latency_ms = int((time.perf_counter() - started) * 1000)
         choice = completion.choices[0]
         usage = completion.usage
