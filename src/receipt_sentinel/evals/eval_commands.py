@@ -165,14 +165,16 @@ def build_client(
 ) -> tuple[LlmClient, str]:
     """Pick the client for a run: the label oracle under --fake, else the real model.
 
-    `provider` is "anthropic" (Anthropic API) or "azure" (the same model via Microsoft
-    Foundry). `model_id` overrides the provider's default model. Both are ignored under
-    --fake.
+    `provider` is "anthropic" (Anthropic API), "azure" (the same model via Microsoft
+    Foundry) or "azure-openai" (a GPT deployment in Azure OpenAI, Entra ID sign-in).
+    `model_id` overrides the provider's default model. Both are ignored under --fake.
     """
     if fake:
         return TracingLlmClient(_label_oracle(cases, noisy=demo_noise), "fake"), "fake"
     if demo_noise:
         raise SystemExit("--demo-noise only applies to --fake runs")
+    if provider == "azure-openai":
+        return _build_azure_openai_client(model_id)
     if provider == "azure":
         if not os.environ.get(API_KEY_ENV_VAR) or not (
             os.environ.get(RESOURCE_ENV_VAR) or os.environ.get(BASE_URL_ENV_VAR)
@@ -187,6 +189,24 @@ def build_client(
     if not api_key:
         raise SystemExit("ANTHROPIC_API_KEY is not set")
     return TracingLlmClient(AnthropicLlmClient(api_key), "anthropic"), model_id or DEFAULT_MODEL_ID
+
+
+def _build_azure_openai_client(model_id: str | None) -> tuple[LlmClient, str]:
+    # Imported here: openai and azure-identity are the optional `azure-openai` extra.
+    from receipt_sentinel.categorize.azure_openai_llm_client import (
+        AZURE_OPENAI_PROVIDER_NAME,
+        DEFAULT_DEPLOYMENT,
+        DEPLOYMENT_ENV_VAR,
+        ENDPOINT_ENV_VAR,
+        build_azure_openai_llm_client,
+    )
+
+    endpoint = os.environ.get(ENDPOINT_ENV_VAR)
+    if not endpoint:
+        raise SystemExit(f"set {ENDPOINT_ENV_VAR} for --provider azure-openai")
+    deployment = model_id or os.environ.get(DEPLOYMENT_ENV_VAR, DEFAULT_DEPLOYMENT)
+    client = build_azure_openai_llm_client(endpoint)
+    return TracingLlmClient(client, AZURE_OPENAI_PROVIDER_NAME), deployment
 
 
 def _write_summary(

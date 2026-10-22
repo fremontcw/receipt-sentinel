@@ -5,3 +5,8 @@ claude-sonnet-5:
 fake:
   usd_per_million_input: 0.0
   usd_per_million_output: 0.0
+# Azure OpenAI list (Global Standard) price, checked 2026-10-21; a regional Standard
+# deployment runs 10-25% higher. Key = deployment name, which matches the model name.
+gpt-4.1:
+  usd_per_million_input: 2.00
+  usd_per_million_output: 8.00
