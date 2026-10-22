@@ -1237,6 +1237,23 @@ wheels = [
 ]
 
 [[package]]
+name = "openai"
+version = "3.36.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0d/4f/d06c2dbbe2b4f8798f6d54da77a206875f25fbf31b96ea56ea339b30dad6/openai-3.36.0.tar.gz", hash = "sha256:fbe1df6490985247e542639098cd3c1170cfbd7bbce5fb5bdfe06cc4746c9dbc", size = 2296783, upload-time = "2026-10-21T15:54:34.03Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/22/a9/3db339b9dd01f8cfc7ac7b6a693cb155a4b06ce070046ee4c5a9ad0c4e95/openai-3.36.0-py3-none-any.whl", hash = "sha256:bf99f3be1048df0de9c3a2d66e7328cb7febddd5d84264192b19aebe0d1e34ad", size = 2292466, upload-time = "2026-10-21T15:54:31.178Z" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.45.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1924,6 +1941,10 @@ api = [
     { name = "python-multipart" },
     { name = "uvicorn" },
 ]
+azure-openai = [
+    { name = "azure-identity" },
+    { name = "openai" },
+]
 dev = [
     { name = "azure-communication-email" },
     { name = "azure-data-tables" },
@@ -1933,6 +1954,7 @@ dev = [
     { name = "google-auth-oauthlib" },
     { name = "httpx" },
     { name = "mypy" },
+    { name = "openai" },
     { name = "opentelemetry-sdk" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1961,6 +1983,7 @@ requires-dist = [
     { name = "azure-communication-email", marker = "extra == 'hosted'", specifier = ">=1.1.0" },
     { name = "azure-data-tables", marker = "extra == 'dev'", specifier = ">=12.7.0" },
     { name = "azure-data-tables", marker = "extra == 'hosted'", specifier = ">=12.7.0" },
+    { name = "azure-identity", marker = "extra == 'azure-openai'", specifier = ">=1.26.0" },
     { name = "azure-identity", marker = "extra == 'dev'", specifier = ">=1.26.0" },
     { name = "azure-identity", marker = "extra == 'hosted'", specifier = ">=1.26.0" },
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.143.3" },
@@ -1971,6 +1994,8 @@ requires-dist = [
     { name = "google-auth-oauthlib", marker = "extra == 'gmail'", specifier = ">=1.5.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
+    { name = "openai", marker = "extra == 'azure-openai'", specifier = ">=3.36.0" },
+    { name = "openai", marker = "extra == 'dev'", specifier = ">=3.36.0" },
     { name = "opentelemetry-api", specifier = ">=1.25" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'telemetry'", specifier = ">=1.25" },
     { name = "opentelemetry-sdk", marker = "extra == 'dev'", specifier = ">=1.25" },
@@ -1988,7 +2013,7 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.54.0" },
 ]
-provides-extras = ["dev", "telemetry", "api", "gmail", "hosted"]
+provides-extras = ["dev", "telemetry", "api", "gmail", "hosted", "azure-openai"]
 
 [[package]]
 name = "requests"

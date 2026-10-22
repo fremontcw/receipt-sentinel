@@ -48,6 +48,18 @@ from receipt_sentinel.telemetry import configure_tracing
 DEFAULT_INGEST_DAYS = 30
 DEFAULT_ALLOWLIST_PATH = REPO_ROOT / "config" / "allowlist.yaml"
 DEFAULT_CHECKLIST_DIR = REPO_ROOT / "runs" / "checklists"
+PROVIDERS = ("anthropic", "azure", "azure-openai")
+
+try:
+    import openai
+
+    # openai is the optional `azure-openai` extra; its HTTP errors get the same one-line message.
+    PROVIDER_REJECTIONS: tuple[type[anthropic.APIStatusError | openai.APIStatusError], ...] = (
+        anthropic.APIStatusError,
+        openai.APIStatusError,
+    )
+except ImportError:
+    PROVIDER_REJECTIONS = (anthropic.APIStatusError,)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -69,9 +81,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument(
         "--provider",
-        choices=("anthropic", "azure"),
+        choices=PROVIDERS,
         default="anthropic",
-        help="where the real model runs: Anthropic API, or Claude via Microsoft Foundry",
+        help="Anthropic API, Claude via Microsoft Foundry, or a GPT deployment in Azure OpenAI",
     )
     run.add_argument("--no-save", action="store_true", help="do not store the run")
     run.add_argument("--out", type=Path, default=Path("runs"))
@@ -104,9 +116,7 @@ def _build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--incumbent", default=DEFAULT_MODEL_ID, help="model in use today")
     compare.add_argument("--candidate", default=DEFAULT_MODEL_ID, help="proposed replacement")
     for role in ("incumbent", "candidate"):
-        compare.add_argument(
-            f"--{role}-provider", choices=("anthropic", "azure"), default="anthropic"
-        )
+        compare.add_argument(f"--{role}-provider", choices=PROVIDERS, default="anthropic")
     compare.add_argument("--fake", action="store_true", help="compare label oracles (no API key)")
     compare.add_argument(
         "--demo-noise",
@@ -141,7 +151,7 @@ def _add_ingest_parsers(top: "argparse._SubParsersAction[argparse.ArgumentParser
         help=f"earliest message date, YYYY-MM-DD (default: {DEFAULT_INGEST_DAYS} days ago)",
     )
     ingest.add_argument("--fake", action="store_true", help="keyless golden-label model")
-    ingest.add_argument("--provider", choices=("anthropic", "azure"), default="anthropic")
+    ingest.add_argument("--provider", choices=PROVIDERS, default="anthropic")
     ingest.add_argument("--max-messages", type=int, default=50, help="model spend bound")
     ingest.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST_PATH)
 
@@ -174,7 +184,7 @@ def _add_checklist_parsers(top: "argparse._SubParsersAction[argparse.ArgumentPar
     propose.add_argument("--gmail-credentials", type=Path, default=REPO_ROOT / "credentials.json")
     propose.add_argument("--gmail-token", type=Path, default=REPO_ROOT / "token.json")
     propose.add_argument("--fake", action="store_true", help="keyless golden-label model")
-    propose.add_argument("--provider", choices=("anthropic", "azure"), default="anthropic")
+    propose.add_argument("--provider", choices=PROVIDERS, default="anthropic")
     propose.add_argument("--max-messages", type=int, default=50, help="model spend bound")
     propose.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST_PATH)
     confirm = commands.add_parser("confirm", help="store the receipts you accepted")
@@ -250,7 +260,7 @@ EXIT_PROVIDER_REJECTED = 2
 def main(argv: list[str] | None = None) -> int:
     try:
         return _dispatch(_build_parser().parse_args(argv))
-    except anthropic.APIStatusError as err:
+    except PROVIDER_REJECTIONS as err:
         # The API's message names the problem (key, workspace, model) and never the key.
         print(
             f"provider rejected the request (HTTP {err.status_code}): {err.message}",
