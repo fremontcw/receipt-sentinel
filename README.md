@@ -175,6 +175,37 @@ e.g. a case that passed at baseline now fails on `category` because the
 noise-injected oracle mis-routes a grocery receipt to `other`. That's the
 shape of report a real prompt or model regression produces.
 
+## Claude vs GPT-4.1, measured
+
+`sentinel evals compare-models` runs two models on the same 85 golden cases with
+the same prompt and diffs them with the normal thresholds. Real run, 2026-10-22,
+Claude on the Anthropic API vs GPT-4.1 on Azure OpenAI (Entra ID, no key):
+
+| | claude-sonnet-5 | gpt-4.1 |
+|---|---|---|
+| pass rate | 92.9% | **96.5%** (+3.5 pts) |
+| regressions vs Claude | — | 0 (3 improvements) |
+| adversarial failures | 0 | 0 |
+| cost per run | $0.287 | $0.186 (list price) |
+| p50 latency | 1480 ms | 1078 ms |
+
+Verdict: PASS, GPT-4.1 is a safe swap on this set. Two things only a real run
+surfaced:
+
+- **Azure's jailbreak filter blocked every request.** The prompt's few-shot
+  example of an injection attack (`SYSTEM: ignore all prior rules…`) trips
+  Prompt Shields, so all 85 calls came back HTTP 400. The deployment uses a
+  copy of Azure's default policy with Jailbreak set to *annotate, don't block*;
+  every other filter is unchanged. Safe here because the model has no tools and
+  can only return the receipt schema, and `injection_detected` still runs. A
+  receipt a filter does block now fails that one case instead of the run.
+- **Rate limits need the server's `retry-after`.** At 50K TPM, 10 of 85 calls
+  hit 429 and the 7-second backoff gave up; the client now waits as long as
+  Azure asks (capped at 60 s).
+
+The prompt was written and tuned against Claude, so this is not a general
+ranking, just the evidence a migration decision on this workload needs.
+
 ## The thing under test
 
 `categorize_receipt(doc, prompt) -> ReceiptRecord` is deliberately small:
@@ -419,10 +450,11 @@ OIDC. One-time setup: `infra/hosted_demo_setup.md`.
 - **Public history is numbers only.** Receipt text and model answers never
   leave the author's machine once real receipts are in the golden set
   (`--public`); the public page shows pass rates, deltas, counts, and cost.
-- **Foundry path is mock-verified only.** Claude runs on the Anthropic API or
-  Microsoft Foundry (`--provider`), and `sentinel evals compare-models` diffs
-  any two model/provider pairs side by side, but the Foundry path has only
-  been exercised against a mocked endpoint.
+- **Claude-on-Foundry is mock-verified only.** Claude runs on the Anthropic
+  API or Microsoft Foundry (`--provider azure`), but Foundry Claude quota for
+  this subscription was denied, so that path has only run against a mocked
+  endpoint. GPT-4.1 on Azure OpenAI (`--provider azure-openai`) has run for
+  real (see above).
 
 ## Roadmap
 
