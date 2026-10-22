@@ -196,7 +196,7 @@ surfaced:
   example of an injection attack (`SYSTEM: ignore all prior rules…`) trips
   Prompt Shields, so all 85 calls came back HTTP 400. The deployment uses a
   copy of Azure's default policy with Jailbreak set to *annotate, don't block*;
-  every other filter is unchanged. Safe here because the model has no tools and
+  every other filter is unchanged ([`infra/azure_openai.bicep`](infra/azure_openai.bicep)). Safe here because the model has no tools and
   can only return the receipt schema, and `injection_detected` still runs. A
   receipt a filter does block now fails that one case instead of the run.
 - **Rate limits need the server's `retry-after`.** At 50K TPM, 10 of 85 calls

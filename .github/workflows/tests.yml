@@ -37,13 +37,15 @@ jobs:
       - run: scripts/container_smoke_test.sh
         env:
           CONTAINER: ${{ matrix.runtime }}
-  # The hosted demo's Azure template must compile with no warnings; nothing is deployed here
+  # Every Azure template must compile with no warnings; nothing is deployed here
   infra:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: az bicep install
       - run: |
-          az bicep build --file infra/main.bicep --stdout > /dev/null 2> bicep.log || { cat bicep.log; exit 1; }
-          cat bicep.log
-          ! grep -qi warning bicep.log
+          for f in infra/*.bicep; do
+            az bicep build --file "$f" --stdout > /dev/null 2> bicep.log || { cat bicep.log; exit 1; }
+            cat bicep.log
+            ! grep -qi warning bicep.log
+          done
