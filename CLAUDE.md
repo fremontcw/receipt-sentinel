@@ -8,12 +8,12 @@ Public repo: https://github.com/fremontcw/receipt-sentinel
 - `_raw_receipts/` holds the author's unredacted receipts — gitignored. Redacted copies + labels go in `src/receipt_sentinel/evals/golden/`. Author reviews every redaction before commit.
 - Public repo: no BRANY content, no real PII, no secrets. No personal or career notes in this file either.
 
-## Handoff (2026-10-17)
+## Handoff (2026-10-17, updated 2026-10-23)
 
 Goal of the current work: make this repo show a full "AI-native automation engineer" skill set
 (evals, GitHub automation, telemetry, MCP, C#/.NET, Azure AI, human-in-the-loop, dashboards).
 
-**Done (CI green at push; 83 tests locally):**
+**Done (CI green at push; 375 tests locally as of 2026-10-23):**
 
 - Eval harness (Aug): golden set, scoring, baseline diff, HTML report, Slack, GitHub Actions gate.
 - OpenTelemetry (`src/receipt_sentinel/telemetry.py`): `eval_run` → `eval_case` → `chat <model>` spans,
@@ -29,6 +29,12 @@ Goal of the current work: make this repo show a full "AI-native automation engin
 - Azure provider (`categorize/azure_foundry_llm_client.py`): `--provider azure` = same Claude model via
   Microsoft Foundry (`AsyncAnthropicFoundry` handed to `AnthropicLlmClient`). Offline-tested with a mocked
   endpoint only; never run against a real deployment.
+- Azure OpenAI provider (`categorize/azure_openai_llm_client.py`, 2026-10-22): `--candidate-provider
+  azure-openai` runs GPT-4.1 (deployment `gpt-4.1` on AIServices account `rsfoundry7evhws`, eastus2, Entra
+  ID only, needs `AZURE_OPENAI_ENDPOINT`). Prompt-filter 400s become a per-case parse failure; 429s honor
+  `retry-after` (capped 60 s). Deployment + flag-only Jailbreak filter live in `infra/azure_openai.bicep`
+  (the prompt's few-shot injection example trips Prompt Shields on every request otherwise). Real run:
+  Claude 92.9% → GPT-4.1 96.5%, 0 regressions, $0.29 → $0.19/run; README "Claude vs GPT-4.1, measured".
 
 **Next, in suggested order:**
 
@@ -55,9 +61,10 @@ Goal of the current work: make this repo show a full "AI-native automation engin
    2026-10-20 at https://receipt-sentinel.livelyisland-d20fc2cc.eastus.azurecontainerapps.io (resource group
    `receipt-sentinel-demo`, eastus; budgetStartDate 2026-10-01 on every Bicep re-run).
 5. ~~Stored-status bug~~ fixed: `save_run` gets the diff verdict (MCP server could expose status now).
-6. When the author has Azure: deploy Claude in Foundry, set `ANTHROPIC_FOUNDRY_API_KEY`/`_RESOURCE`/`_MODEL`,
+6. Blocked: Claude-in-Foundry quota is 0 on this PayAsYouGo subscription and the quota request was
+   denied (2026-10). If it is ever granted: set `ANTHROPIC_FOUNDRY_API_KEY`/`_RESOURCE`/`_MODEL`,
    `uv run sentinel evals run --provider azure --out runs/azure`; then switch to Entra ID auth (TODO in the
-   module header).
+   module header). GPT-4.1 above covers the "Azure AI" skill meanwhile.
 7. Still-open author actions from August (first real run + baseline done 2026-10-17: claude-sonnet-5,
    98.2%, $0.19/run; key is a Default-workspace key, in GitHub secrets + macOS keychain `anthropic-api-key`):
    ~~~20 redacted real receipts~~ done 2026-10-20 (18 email receipts, dataset v3, real baseline
