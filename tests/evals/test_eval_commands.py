@@ -10,6 +10,7 @@ from receipt_sentinel.categorize.llm_client import (
 )
 from receipt_sentinel.evals import eval_commands
 from receipt_sentinel.evals.eval_commands import (
+    EXIT_PROVIDER_UNSTABLE,
     EvalPaths,
     command_compare_models,
     command_evals_run,
@@ -67,7 +68,7 @@ def test_promote_case_writes_stub(tmp_path: Path) -> None:
     assert load_golden_cases(golden)[0].id == "real_0099_acme"
 
 
-def test_provider_unstable_run_exits_zero_saves_nothing_but_writes_summary(
+def test_provider_unstable_run_fails_closed_saves_nothing_but_writes_summary(
     tmp_path: Path,
 ) -> None:
     class Flaky:
@@ -78,7 +79,8 @@ def test_provider_unstable_run_exits_zero_saves_nothing_but_writes_summary(
     code = command_evals_run(
         p, fake=True, save=True, slack_webhook=None, report_url=None, client_override=Flaky()
     )
-    assert code == 0
+    # No verdict must not read as a pass to a PR check.
+    assert code == EXIT_PROVIDER_UNSTABLE
     assert list_recent_runs(p.db_path, dataset_version=DATASET_VERSION, limit=5) == []
     assert (p.report_path.parent / "summary.md").exists()
     assert "PROVIDER_UNSTABLE" in (p.report_path.parent / "summary.md").read_text()
@@ -142,6 +144,22 @@ def test_compare_models_worse_candidate_is_critical_with_cost_and_latency(
 def test_compare_models_unpriced_candidate_fails_before_any_model_call(tmp_path: Path) -> None:
     with pytest.raises(SystemExit, match="no pricing for model 'claude-unpriced'"):
         command_compare_models(paths_in(tmp_path), candidate_model="claude-unpriced")
+
+
+def test_compare_models_provider_outage_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Flaky:
+        async def complete(self, request: LlmRequest) -> LlmResponse:
+            raise LlmTransientError("down")
+
+    monkeypatch.setattr(
+        "receipt_sentinel.evals.eval_commands.build_client",
+        lambda *args, **kwargs: (Flaky(), "fake"),
+    )
+    p = paths_in(tmp_path)
+    assert command_compare_models(p, fake=True) == EXIT_PROVIDER_UNSTABLE
+    assert "PROVIDER_UNSTABLE" in (p.report_path.parent / "summary.md").read_text()
 
 
 def _bless_clean_baseline(p: EvalPaths) -> str:
