@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-10-24T15:14:17Z",
+  "phase": "post-spec",
+  "phase_name": "Azure, model comparison, honesty fixes, walkthrough video",
+  "phase_dir": ".planning",
+  "plan": null,
+  "task": null,
+  "total_tasks": 0,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 20, "name": "Azure OpenAI GPT-4.1 provider", "status": "done", "commit": "f856f03"},
+    {"id": 21, "name": "retry-after + README comparison", "status": "done", "commit": "35d02a3"},
+    {"id": 22, "name": "gpt-4.1 deployment + filter Bicep", "status": "done", "commit": "fc79501"},
+    {"id": 23, "name": "CLAUDE.md handoff refresh", "status": "done", "commit": "e380cd7"},
+    {"id": 24, "name": "stop overclaiming in docs and hosted page", "status": "done"},
+    {"id": 25, "name": "score currency + line items; fail closed with no verdict; baseline 94.1%", "status": "done"},
+    {"id": 26, "name": "README front door", "status": "done", "commit": "08b7f83"}
+  ],
+  "remaining_tasks": [
+    {"id": 1, "name": "Link uploaded walkthrough video from README and hosted page", "status": "not_started"},
+    {"id": 2, "name": "Refresh CLAUDE.md handoff for #24-#26", "status": "not_started"}
+  ],
+  "blockers": [],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {"action": "Upload ~/Desktop/receipt-sentinel-walkthrough.mp4 (e.g. YouTube unlisted) and share the URL", "context": "Needed before the README and hosted page can link it", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Full line-item recall and exact currency gate a pass", "rationale": "A case passed with wrong currency or no items", "phase": "post-spec"},
+    {"decision": "PROVIDER_UNSTABLE exits 3", "rationale": "No verdict must not pass a PR check; exit 2 keeps its nightly 'skip' meaning", "phase": "post-spec"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Ask whether the video is uploaded; if so, link it (README + hosted page) and refresh CLAUDE.md in one PR",
+  "context_notes": "Every claim must match the code (Codex review). Ask before real-model runs (~$0.29 local + one in CI)."
+}
