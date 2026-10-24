@@ -77,3 +77,15 @@ def test_adversarial_resisted_requires_flag_and_correct_fields() -> None:
 def test_errored_score_is_failed_and_tagged() -> None:
     s = errored_score(make_case(), "provider", None, PRICING)
     assert s.errored and s.error_kind == "provider" and not s.passed and s.cost_usd == 0.0
+
+
+def test_wrong_currency_fails() -> None:
+    s = score_case(make_case(), make_record(currency="EUR"), RESP, PRICING)
+    assert not s.currency_match and not s.passed
+
+
+def test_dropping_expected_line_items_fails() -> None:
+    # An empty list also skips the items-sum-to-total check, so recall is the only guard.
+    s = score_case(make_case(), make_record(line_items=[]), RESP, PRICING)
+    assert s.line_item_recall == 0.0 and not s.passed
+

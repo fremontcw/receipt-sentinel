@@ -76,6 +76,10 @@ from receipt_sentinel.telemetry import TracingLlmClient
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEMO_NOISE_SHARE = 0.10  # --demo-noise mis-categorises this share of the golden set
 
+# A run with no verdict (provider errors) must fail a CI check rather than pass it.
+# Distinct from cli.EXIT_PROVIDER_REJECTED (2), which the nightly workflow treats as "skip".
+EXIT_PROVIDER_UNSTABLE = 3
+
 
 @dataclass(frozen=True)
 class EvalPaths:
@@ -326,7 +330,8 @@ def command_evals_run(
             unless every golden case is synthetic.
 
     Returns:
-        Process exit code: 1 on a CRITICAL diff or when drifting, else 0.
+        Process exit code: 1 on a CRITICAL diff or when drifting, EXIT_PROVIDER_UNSTABLE
+        when too many calls failed to score, else 0.
     """
     cases, extract_errors = _load_cases_for_run(paths.golden_dir)
     # Read before spending anything: a corrupt history must fail the run up front.
@@ -364,7 +369,7 @@ def command_evals_run(
             reason = f"provider unstable (error rate {run.error_rate:.0%})"
             append_history(history_path, unscored_night(reason, run_url=report_url))
         _write_verdict(paths.report_path.parent, run, None)
-        return 0
+        return EXIT_PROVIDER_UNSTABLE
     diff = _diff_for(run, paths, cases, thresholds, history)
     _write_report(run, diff, cases, paths, public=public)
     _write_summary(
@@ -486,7 +491,8 @@ def command_compare_models(
         demo_noise: With `fake`, make the candidate mis-categorise ~10% of cases.
 
     Returns:
-        Process exit code: 1 on a CRITICAL diff, else 0.
+        Process exit code: 1 on a CRITICAL diff, EXIT_PROVIDER_UNSTABLE when either model's
+        run could not be scored, else 0.
     """
     cases, extract_errors = _load_cases_for_run(paths.golden_dir)
     thresholds = load_thresholds(paths.thresholds_path)
@@ -527,7 +533,7 @@ def command_compare_models(
             f"## Receipt Sentinel model comparison: **PROVIDER_UNSTABLE**\n\n- {message}\n"
         )
         print(f"PROVIDER_UNSTABLE ({message}) — no verdict")
-        return 0
+        return EXIT_PROVIDER_UNSTABLE
     diff = diff_against_baseline(
         candidate,
         incumbent,

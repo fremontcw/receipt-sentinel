@@ -47,6 +47,7 @@ jobs:
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           path: runs/ci/summary.md
-      - name: Fail on critical
+      # Exit 1 = CRITICAL or drifting; exit 3 = provider errors left no verdict.
+      - name: Fail on CRITICAL or no verdict
         if: steps.evals.outcome == 'failure'
         run: exit 1
