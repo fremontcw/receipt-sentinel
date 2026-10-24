@@ -47,8 +47,8 @@ phone photo of the same receipt. The response says `ocr`: Tesseract read the pho
 Press Ctrl+C to stop the server.
 
 **Say:** "This is the thing under test: receipt in, structured record out, PDF or photo.
-The model has no tools and can only return the schema, so an injected instruction gets
-flagged, not followed."
+The model has no tools, and its reply has to parse as this record, so an injected
+instruction has little to grab. In the tests it gets flagged and resisted."
 
 ## 2:00 · A human confirms before anything is stored
 
@@ -68,7 +68,7 @@ target and the proposal id the demo printed:
 make container-checklist-confirm PROPOSAL=2026-08-01ef3167 ACCEPT=r02
 ```
 
-**Say:** "Nothing is written until a person confirms. Propose only reads; confirm is the
+**Say:** "Nothing reaches the database until a person confirms. Propose only drafts files; confirm is the
 one path into the database, in one transaction, and it refuses duplicates and stale
 decisions."
 
