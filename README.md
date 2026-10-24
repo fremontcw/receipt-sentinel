@@ -1,8 +1,32 @@
 # Receipt Sentinel
 
-An LLM document-extraction feature and the CI that keeps it honest.
+An LLM feature that reads receipts, and the eval harness that stops it from
+quietly getting worse.
 
-**Live dashboard:** [nightly eval history](https://fremontcw.github.io/receipt-sentinel/) (numbers only; rebuilt after every nightly run).
+- **Try it:** [live demo on Azure](https://receipt-sentinel.livelyisland-d20fc2cc.eastus.azurecontainerapps.io/).
+  The public page shows the labelled answer for free; a personal link runs Claude live.
+- **Watch it:** [walkthrough](docs/walkthrough.md) of every part, in order.
+- **Trend:** [nightly eval dashboard](https://fremontcw.github.io/receipt-sentinel/)
+  (numbers only, rebuilt after every nightly run).
+
+**The evidence**
+
+- **Gate:** 85 hand-labelled receipts, 18 of them the author's own (redacted),
+  each scored on vendor, total, date, currency, category, line items and
+  validation. Claude Sonnet 5 passes 94.1% for $0.29 a run, and resists all 8
+  prompt-injection cases.
+- **A caught regression:** a deliberately damaged run drops 10.6 points with 9
+  regressed receipts, is marked CRITICAL, and fails the PR check
+  ([sample report](docs/sample_report.html), [how](#a-regression-caught)).
+- **A model migration, measured:** GPT-4.1 on Azure OpenAI vs Claude on the same
+  set and prompt, with cost and latency ([results](#claude-vs-gpt-41-measured)).
+- **Runs itself:** nightly evals open a GitHub issue on a regression and close it
+  on recovery.
+
+**Two separate pieces.** The hosted demo is a one-receipt extraction viewer.
+The full workflow (Gmail or `.eml` ingest → sender allowlist → extract →
+monthly checklist → a person confirms → SQLite) runs only on your machine:
+`make checklist-demo`. Nothing in the hosted demo reads email or stores receipts.
 
 ## Problem
 
@@ -243,7 +267,7 @@ make container-serve          # API at http://127.0.0.1:8000/docs
 make container-checklist-demo # monthly checklist proposal + review page
 ```
 
-[`docs/walkthrough.md`](docs/walkthrough.md) is a 3-minute guided tour of all three. The
+[`docs/walkthrough.md`](docs/walkthrough.md) is a guided tour of all three. The
 targets run the image with a read-only root and no capabilities, as your own user, and
 publish the API on `127.0.0.1` only. Keep it that way: the API has no auth and uses your
 key when `ANTHROPIC_API_KEY` is set. Gmail ingest is native-only, since its sign-in
@@ -469,8 +493,8 @@ feature it will eventually gate more of):
 6. ~~Extract layer, validate layer, PDF/image golden fixtures~~ done.
 7. ~~Ingest: `.eml` source, Gmail (read-only) source, sender allowlist~~ done.
 8. ~~Checklist propose/confirm (SQLite, user-confirmed persistence only)~~ done.
-9. ~~Dockerfile and a 3-minute walkthrough~~ done.
+9. ~~Dockerfile and a walkthrough~~ done.
 
-Beyond the spec: ~~a hosted Azure demo with personal links~~ built (design:
-`docs/superpowers/specs/2026-10-20-hosted-azure-demo-design.md`); going live
-waits on the one-time setup in `infra/hosted_demo_setup.md`.
+Beyond the spec: ~~a hosted Azure demo with personal links~~ live since
+2026-10-20 (design: `docs/superpowers/specs/2026-10-20-hosted-azure-demo-design.md`,
+setup: `infra/hosted_demo_setup.md`).
