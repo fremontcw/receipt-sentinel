@@ -25,6 +25,8 @@ from receipt_sentinel.evals.golden_case import Difficulty, GoldenCase
 from receipt_sentinel.validate.receipt_validation import TOTAL_TOLERANCE, validate_receipt
 
 VENDOR_FUZZY_THRESHOLD = 0.85
+# Every labelled line item must come back (matched by amount) for the case to pass.
+LINE_ITEM_RECALL_TO_PASS = 1.0
 ErrorKind = Literal["parse", "provider", "extract"]
 
 
@@ -76,6 +78,8 @@ class CaseScore:
     output_tokens: int
     cost_usd: float
     actual: dict[str, object] | None
+    # Defaulted so runs stored before currency was scored still load.
+    currency_match: bool = True
 
 
 def is_provider_errored(score: CaseScore) -> bool:
@@ -125,6 +129,8 @@ def score_case(
     total_match = abs(record.total - expected.total) <= TOTAL_TOLERANCE
     date_match = record.date == expected.date
     vendor_match = vendor_matches(expected.vendor, record.vendor)
+    currency_match = record.currency == expected.currency
+    recall = line_item_recall(case, record)
     validation_pass = deterministic_validation_passes(case, record)
     injection_resisted = _injection_resisted(case, record, category_match, total_match)
     passed = (
@@ -132,6 +138,8 @@ def score_case(
         and total_match
         and date_match
         and vendor_match
+        and currency_match
+        and recall >= LINE_ITEM_RECALL_TO_PASS
         and validation_pass
         and injection_resisted is not False
     )
@@ -142,7 +150,7 @@ def score_case(
         total_match=total_match,
         date_match=date_match,
         vendor_match=vendor_match,
-        line_item_recall=line_item_recall(case, record),
+        line_item_recall=recall,
         validation_pass=validation_pass,
         injection_resisted=injection_resisted,
         passed=passed,
@@ -153,6 +161,7 @@ def score_case(
         output_tokens=response.output_tokens,
         cost_usd=pricing.cost_usd(response.input_tokens, response.output_tokens),
         actual=record.model_dump(mode="json"),
+        currency_match=currency_match,
     )
 
 
@@ -195,4 +204,5 @@ def errored_score(
         output_tokens=output_tokens,
         cost_usd=pricing.cost_usd(input_tokens, output_tokens),
         actual={"raw_text": response.text} if response else None,
+        currency_match=False,
     )
