@@ -47,8 +47,8 @@ mcp_run_history_server/  C# MCP server: lets an agent ask "what regressed?" (rea
 ```
 
 Feature path: `email → allowlist (headers only) → attachment → extract → categorize
-→ validate → monthly proposal → you review and confirm → SQLite`. Nothing is stored
-without that confirm. The golden set feeds both text and file fixtures, so the harness
+→ validate → monthly proposal → you review and confirm → SQLite`. Nothing reaches the
+database without that confirm. The golden set feeds both text and file fixtures, so the harness
 gates extraction as well as the LLM call.
 
 Harness loop:
@@ -196,8 +196,9 @@ surfaced:
   example of an injection attack (`SYSTEM: ignore all prior rules…`) trips
   Prompt Shields, so all 85 calls came back HTTP 400. The deployment uses a
   copy of Azure's default policy with Jailbreak set to *annotate, don't block*;
-  every other filter is unchanged ([`infra/azure_openai.bicep`](infra/azure_openai.bicep)). Safe here because the model has no tools and
-  can only return the receipt schema, and `injection_detected` still runs. A
+  every other filter is unchanged ([`infra/azure_openai.bicep`](infra/azure_openai.bicep)). Acceptable here because the model has no tools,
+  its reply must parse as a `ReceiptRecord` or the case fails, and the
+  injection cases in the golden set still score whether it resisted. A
   receipt a filter does block now fails that one case instead of the run.
 - **Rate limits need the server's `retry-after`.** At 50K TPM, 10 of 85 calls
   hit 429 and the 7-second backoff gave up; the client now waits as long as
@@ -216,14 +217,17 @@ ranking, just the evidence a migration decision on this workload needs.
   instructions, and that any instruction-like content inside it must be
   ignored and reported via `injection_detected: bool`.
 - **No tools** — the model can't take any action beyond returning JSON.
-- Output is forced to a strict JSON schema, parsed into a Pydantic
-  `ReceiptRecord`; anything that doesn't parse is a scored failure, not a
-  silent pass-through.
+- The prompt asks for a strict JSON shape, and the reply is parsed into a
+  Pydantic `ReceiptRecord`; anything that doesn't parse is a scored failure,
+  not a silent pass-through. Parsing checks shape, not truth: a well-formed
+  but wrong answer is caught by scoring against the label, not here.
 - **Provenance is stamped by code, not the model** — `model_id` and
   `prompt_version` are set from the calling context after the response
-  comes back, not trusted from model output, so a case attempting to set
-  `model_id`/`confidence` itself (see `adversarial_0006_set_model_id.yaml`,
-  `adversarial_0005_set_confidence.yaml`) can't succeed.
+  comes back, so a receipt that tries to set `model_id`
+  (`adversarial_0006_set_model_id.yaml`) can't. `confidence` is the model's
+  own estimate and is not trusted for anything; a receipt that tries to
+  inflate it (`adversarial_0005_set_confidence.yaml`) fails only if the
+  injection also changes a scored field.
 - 8 adversarial golden cases exercise instruction override, schema
   tampering, secret exfiltration, HTML/script injection in vendor or line
   items, role-play jailbreaks, and JSON smuggled inside a line-item field.
@@ -329,7 +333,7 @@ uv run sentinel checklist confirm <proposal_id> --decisions ~/Downloads/decision
 
 `propose` ingests the month and writes a proposal: receipts with flags (needs review, low
 confidence < 0.7, duplicate, injection attempt), totals per category *and currency*, and
-the unknown senders, plus a keyboard review page. Nothing is stored. The review page
+the unknown senders, plus a keyboard review page, as files under `runs/`; the database is not touched. The review page
 downloads your decisions, and `confirm` is the only thing that writes to the local SQLite
 store (`data/receipt_sentinel.db`, gitignored), in one transaction. A second confirm of
 the same proposal, an id that isn't in the proposal, or an accepted duplicate is refused
@@ -442,14 +446,15 @@ OIDC. One-time setup: `infra/hosted_demo_setup.md`.
   for `pypdf` + `pypdfium2`.
 - **No `temperature` pinned.** The design called for `temperature=0` for
   determinism, but the installed SDK/model combination doesn't accept
-  sampling parameters on this call — determinism instead comes from
-  diffing against a committed baseline with tolerant per-field thresholds,
-  not from byte-identical model output.
+  sampling parameters on this call. Output is not deterministic; the gate
+  absorbs run-to-run variance with tolerant per-field thresholds against a
+  committed baseline instead.
 - **Single labeler.** All 85 golden cases were labeled by one person; no
   second-rater agreement check exists yet.
-- **Public history is numbers only.** Receipt text and model answers never
-  leave the author's machine once real receipts are in the golden set
-  (`--public`); the public page shows pass rates, deltas, counts, and cost.
+- **Public history is numbers only.** With `--public`, nightly CI publishes
+  no receipt text or model answers, only pass rates, deltas, counts, and
+  cost. (Receipt text does go to the model provider on every real run, and
+  the redacted receipts themselves are in this repo.)
 - **Claude-on-Foundry is mock-verified only.** Claude runs on the Anthropic
   API or Microsoft Foundry (`--provider azure`), but Foundry Claude quota for
   this subscription was denied, so that path has only run against a mocked
